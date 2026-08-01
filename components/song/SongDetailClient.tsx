@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ChordChart from './ChordChart';
 import KeyControl from './KeyControl';
 
@@ -151,7 +152,11 @@ export default function SongDetailClient({
               </button>
             )}
 
-            {status === 'published' && (
+            {/* "Publicada" y "Pública/Privada" son indicadores de estado
+                internos: un visitante anónimo no inicia sesión y no le
+                aportan nada, así que solo se muestran a usuarios
+                registrados. */}
+            {isLoggedIn && status === 'published' && (
               <span className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-accent-teal text-accent-teal text-sm">
                 Publicada
               </span>
@@ -177,7 +182,11 @@ export default function SongDetailClient({
               </div>
             )}
 
-            {!canManageSong && (
+            {/* Para quien no puede administrar la canción, el estado de
+                visibilidad solo interesa mientras está en borrador (es
+                información poco común y útil de aclarar); una vez
+                publicada, "Pública" es redundante junto a "Publicada". */}
+            {!canManageSong && isLoggedIn && status !== 'published' && (
               <span className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm">
                 {visibility === 'public' ? 'Pública' : 'Privada'}
               </span>
@@ -191,20 +200,35 @@ export default function SongDetailClient({
                 {favorite ? '★ En favoritos' : '☆ Agregar a favoritos'}
               </button>
             )}
-            <button
-              onClick={() => handleExport('pdf')}
-              disabled={exporting !== null}
-              className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm"
-            >
-              {exporting === 'pdf' ? 'Generando...' : 'PDF'}
-            </button>
-            <button
-              onClick={() => handleExport('docx')}
-              disabled={exporting !== null}
-              className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm"
-            >
-              {exporting === 'docx' ? 'Generando...' : 'DOCX'}
-            </button>
+
+            {/* Exportar a PDF/DOCX requiere sesión (el endpoint las
+                rechaza si no hay usuario) — antes se mostraban siempre y
+                fallaban con un error genérico para visitantes anónimos. */}
+            {isLoggedIn ? (
+              <>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={exporting !== null}
+                  className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm"
+                >
+                  {exporting === 'pdf' ? 'Generando...' : 'PDF'}
+                </button>
+                <button
+                  onClick={() => handleExport('docx')}
+                  disabled={exporting !== null}
+                  className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm"
+                >
+                  {exporting === 'docx' ? 'Generando...' : 'DOCX'}
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="col-span-2 inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 hover:text-primary"
+              >
+                Inicia sesión para exportar a PDF/DOCX
+              </Link>
+            )}
           </div>
         </div>
 
