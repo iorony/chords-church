@@ -255,6 +255,8 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
   const [viewport, setViewport] = useState({ width: 1280, height: 720 });
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openPreviousSongAtLastPage = useRef(false);
+  const contentScrollRef = useRef<HTMLElement | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // Puede ocurrir que la presentación se abra antes de que la lista termine
   // de cargarse, o que alguna canción antigua no tenga baseKey/selectedKey.
@@ -376,6 +378,23 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     if (!openPreviousSongAtLastPage.current) setPageIndex(0);
   }, [songIndex]);
 
+  // En móvil, cada canción es un documento vertical independiente. Al cambiar
+  // de canción regresamos inmediatamente al inicio para que el usuario vea el
+  // título y la primera sección, aunque la canción anterior se hubiera dejado
+  // desplazada hacia abajo.
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const scrollContainer = contentScrollRef.current;
+    if (!scrollContainer) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollContainer.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [songIndex, isMobile]);
+
   useEffect(() => {
     if (openPreviousSongAtLastPage.current) {
       openPreviousSongAtLastPage.current = false;
@@ -435,6 +454,52 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [nextPage, prevPage, nextSong, prevSong, router]);
 
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    resetControlsTimer();
+    if (!isMobile || event.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now()
+    };
+  }, [isMobile]);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobile || !touchStartRef.current || event.changedTouches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const elapsed = Date.now() - start.time;
+
+    // Solo considera un gesto horizontal intencional. El scroll vertical normal
+    // de la canción no cambia de canción.
+    const isHorizontalSwipe =
+      Math.abs(deltaX) >= 60 &&
+      Math.abs(deltaX) > Math.abs(deltaY) * 1.25 &&
+      elapsed <= 900;
+
+    if (!isHorizontalSwipe) return;
+
+    if (deltaX < 0) {
+      nextPage();
+    } else {
+      prevPage();
+    }
+  }, [isMobile, nextPage, prevPage]);
+
   function resetControlsTimer() {
     setControlsVisible(true);
     if (hideTimeout.current) clearTimeout(hideTimeout.current);
@@ -455,7 +520,9 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
       style={{ height: '100dvh' }}
       onMouseMove={resetControlsTimer}
       onClick={resetControlsTimer}
-      onTouchStart={resetControlsTimer}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={() => { touchStartRef.current = null; }}
     >
       <div
         className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm transition-opacity ${
@@ -505,6 +572,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
       )}
 
       <main
+        ref={contentScrollRef}
         className={`absolute inset-x-0 top-11 bottom-14 sm:top-12 sm:bottom-14 px-3 sm:px-6 py-2 sm:py-3 ${
           isMobile ? 'overflow-y-auto overflow-x-hidden overscroll-contain' : 'overflow-hidden'
         }`}
