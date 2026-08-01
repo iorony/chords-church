@@ -146,16 +146,73 @@ export function buildSections(content: string): SongSection[] {
     let preambleBuffer: string[] = [];
 
     const compactNonBlank = (buffer: string[]) => buffer.filter((line) => line.trim());
-    const preambleIsClearIntro = (buffer: string[]) => {
-      const meaningful = compactNonBlank(buffer);
-      if (meaningful.length < 2) return false;
 
-      // Solo se crea un INTRO implícito cuando el bloque previo contiene
-      // notación musical inequívoca. Un acorde aislado antes de «-Estrofa-»
-      // normalmente pertenece a esa estrofa y no debe generar ESTROFA 1 vacía.
+    const splitBlocks = (buffer: string[]): string[][] => {
+      const blocks: string[][] = [];
+      let block: string[] = [];
+      const flushBlock = () => {
+        while (block.length && !block[0].trim()) block.shift();
+        while (block.length && !block[block.length - 1].trim()) block.pop();
+        if (block.length) blocks.push(block);
+        block = [];
+      };
+
+      for (const line of buffer) {
+        if (!line.trim()) flushBlock();
+        else block.push(line);
+      }
+      flushBlock();
+      return blocks;
+    };
+
+    const chordTokenCount = (line: string) =>
+      (line.match(/[A-G](?:#|b)?(?:maj|min|dim|aug|sus2|sus4|sus|m)?(?:add)?\d{0,2}(?:\/[A-G](?:#|b)?)?/g) || []).length;
+
+    const blockIsClearIntro = (buffer: string[]) => {
+      const meaningful = compactNonBlank(buffer);
+      if (!meaningful.length) return false;
+
       const allChordNotation = meaningful.every((line) => isChordLine(line));
-      const hasProgressionMarker = meaningful.some((line) => /[|/]|(?:^|\s)x\d+(?:\s|$)/i.test(line));
-      return allChordNotation && hasProgressionMarker;
+      if (!allChordNotation) return false;
+
+      // Una sola progresión como "Bm - G - D - A" sí es un intro inequívoco.
+      // Un acorde aislado como "D" antes de «-Estrofa-» se mantiene unido a
+      // la estrofa para no volver a crear secciones fantasma.
+      const hasProgressionMarker = meaningful.some((line) => /[|/]|(?:^|\s)x\d+(?:\s|$)|\s[-–—]\s/i.test(line));
+      const hasSeveralChords = meaningful.some((line) => chordTokenCount(line) >= 3);
+      return hasProgressionMarker || hasSeveralChords || meaningful.length >= 2;
+    };
+
+    const pushPreambleSections = (buffer: string[], nextLabel: string | null) => {
+      const blocks = splitBlocks(buffer);
+      if (!blocks.length) return;
+
+      let index = 0;
+      if (blockIsClearIntro(blocks[0]) && nextLabel !== 'INTRO') {
+        currentBuffer = blocks[0];
+        flush('INTRO');
+        index = 1;
+      }
+
+      const remainder = blocks.slice(index).flatMap((block, blockIndex) =>
+        blockIndex === 0 ? block : ['', ...block]
+      );
+
+      if (!compactNonBlank(remainder).length) return;
+
+      const nextBase = (nextLabel || '').replace(/\s+(?:\d+|[IVXLCDM]+)$/i, '').toUpperCase();
+      const nextIsVerse = nextBase === 'ESTROFA';
+
+      if (nextIsVerse) {
+        // Si el primer encabezado es ESTROFA, el texto previo pertenece a ella.
+        currentBuffer = remainder;
+      } else {
+        // Si el primer encabezado explícito es CORO, PUENTE, PRE-CORO, etc.,
+        // el bloque previo con letra debe convertirse en ESTROFA y no mezclarse
+        // con esa sección explícita.
+        currentBuffer = remainder;
+        flush('ESTROFA');
+      }
     };
 
     for (const line of lines) {
@@ -166,17 +223,7 @@ export function buildSections(content: string): SongSection[] {
           foundFirstHeader = true;
 
           if (compactNonBlank(preambleBuffer).length) {
-            if (preambleIsClearIntro(preambleBuffer) && nextLabel !== 'INTRO') {
-              currentBuffer = preambleBuffer;
-              flush('INTRO');
-            } else {
-              // Adjunta el contenido anterior al primer encabezado explícito.
-              // Corrige casos como:
-              //   D
-              //   -Estrofa-
-              // evitando crear una ESTROFA adicional solo para «D».
-              currentBuffer = preambleBuffer;
-            }
+            pushPreambleSections(preambleBuffer, nextLabel);
           }
           preambleBuffer = [];
           currentLabel = nextLabel;
@@ -256,7 +303,21 @@ export function buildSections(content: string): SongSection[] {
     });
   }
 
-  return sections;
+  // Numera encabezados repetidos sin sufijo para que un segundo INTRO,
+  // PUENTE, INTERLUDIO, etc. no sea indistinguible del primero.
+  const labelCounts = new Map<string, number>();
+  return sections.map((section, index) => {
+    const base = section.label.replace(/\s+(?:\d+|[IVXLCDM]+)$/i, '').trim();
+    const alreadyNumbered = /\s+(?:\d+|[IVXLCDM]+)$/i.test(section.label);
+    const count = (labelCounts.get(base) || 0) + 1;
+    labelCounts.set(base, count);
+
+    return {
+      ...section,
+      order: index + 1,
+      label: alreadyNumbered || count === 1 ? section.label : `${base} ${count}`
+    };
+  });
 }
 
 /** Reconstruye el texto completo de la canción a partir de secciones estructuradas, con encabezados entre corchetes */

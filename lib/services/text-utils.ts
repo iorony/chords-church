@@ -36,6 +36,61 @@ export function sentenceCaseIfUniform(input: string): string {
   return lower.slice(0, firstLetterIndex) + lower[firstLetterIndex].toLocaleUpperCase('es') + lower.slice(firstLetterIndex + 1);
 }
 
+
+const NAME_CONNECTORS = new Set([
+  'a', 'al', 'and', 'con', 'da', 'das', 'de', 'del', 'do', 'dos', 'e', 'el',
+  'en', 'la', 'las', 'los', 'o', 'of', 'para', 'por', 'sin', 'the', 'y'
+]);
+
+function capitalizeWord(word: string): string {
+  const lower = word.toLocaleLowerCase('es');
+  const index = lower.search(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/);
+  if (index < 0) return lower;
+  return (
+    lower.slice(0, index) +
+    lower[index].toLocaleUpperCase('es') +
+    lower.slice(index + 1)
+  );
+}
+
+/**
+ * Convierte nombres de artistas a nombre propio.
+ *
+ * - Capitaliza cada palabra significativa.
+ * - Mantiene conectores como "de", "del", "la", "y" en minúscula.
+ * - Conserva siglas de 2 a 4 letras cuando fueron escritas completamente
+ *   en mayúsculas (BJ, MCI, IHOP).
+ * - Conserva guiones y apóstrofes dentro de una palabra.
+ */
+export function toProperName(input: string): string {
+  const value = input.trim().replace(/\s+/g, ' ');
+  if (!value) return '';
+
+  const words = value.split(' ');
+  return words
+    .map((word, index) => {
+      const plain = word.replace(/^[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/g, '');
+      const normalized = plain.toLocaleLowerCase('es');
+
+      if (/^[A-ZÁÉÍÓÚÜÑ]{2,4}$/.test(plain)) return word;
+      if (index > 0 && NAME_CONNECTORS.has(normalized)) return word.toLocaleLowerCase('es');
+
+      return word
+        .split(/([-'’])/g)
+        .map((part) => (/^[-'’]$/.test(part) ? part : capitalizeWord(part)))
+        .join('');
+    })
+    .join(' ');
+}
+
+/**
+ * Convierte títulos de canciones a estilo editorial, dejando conectores en
+ * minúscula salvo cuando son la primera palabra.
+ */
+export function toProperTitle(input: string): string {
+  return toProperName(input);
+}
+
 /** Firma simple de acordes de una canción, usada para detección de duplicados */
 export function chordSignature(chordRoots: string[]): string {
   return Array.from(new Set(chordRoots)).sort().join(',');

@@ -146,18 +146,18 @@ export function isChordLine(line: string): boolean {
 }
 
 const SECTION_ALIASES: Array<{ regex: RegExp; label: string }> = [
-  { regex: /^intro$/i, label: 'INTRO' },
+  { regex: /^(?:intro|introducci[oó]n)$/i, label: 'INTRO' },
   { regex: /^pre[-\s]?coro$/i, label: 'PRE-CORO' },
   { regex: /^(?:coro|chorus)$/i, label: 'CORO' },
   { regex: /^post[-\s]?coro$/i, label: 'POST-CORO' },
   { regex: /^(?:puente|bridge)$/i, label: 'PUENTE' },
-  { regex: /^interludio$/i, label: 'INTERLUDIO' },
+  { regex: /^(?:interludio|interlude)$/i, label: 'INTERLUDIO' },
   { regex: /^instrumental$/i, label: 'INSTRUMENTAL' },
-  { regex: /^solo$/i, label: 'SOLO' },
+  { regex: /^(?:solo|solo\s+(?:de\s+)?(?:guitarra|piano|teclado|bater[ií]a))$/i, label: 'INTERLUDIO' },
   { regex: /^espont[aá]neo$/i, label: 'ESPONTÁNEO' },
   { regex: /^coro\s*final$/i, label: 'CORO FINAL' },
-  { regex: /^salida$/i, label: 'SALIDA' },
-  { regex: /^final$/i, label: 'FINAL' }
+  { regex: /^(?:salida|outro)$/i, label: 'SALIDA' },
+  { regex: /^(?:final|fin|cierre)$/i, label: 'FINAL' }
 ];
 
 /**
@@ -186,7 +186,17 @@ export function detectSectionLabel(line: string): string | null {
     .replace(/[`*_#~=\-\u2010\u2011\u2012\u2013\u2014\u2212:\s]+$/, '')
     .trim();
 
-  const numbered = /^(estrofa|verso|verse|intro|pre[-\s]?coro|coro|chorus|post[-\s]?coro|puente|bridge|interludio|instrumental|solo|espont[aá]neo|salida|final)(?:\s+([0-9]+|[ivxlcdm]+))?$/i.exec(trimmed);
+  // Las divisiones genéricas PARTE I, PARTE II, etc. se conservan como
+  // encabezados explícitos. No se convierten automáticamente a ESTROFA,
+  // porque en repertorios de iglesia pueden representar bloques musicales
+  // distintos y no necesariamente versos consecutivos.
+  const partMatch = /^parte(?:\s+([0-9]+|[ivxlcdm]+))?$/i.exec(trimmed);
+  if (partMatch) {
+    const suffix = partMatch[1]?.toUpperCase();
+    return suffix ? `PARTE ${suffix}` : 'PARTE';
+  }
+
+  const numbered = /^(estrofa|verso|verse|intro|introducci[oó]n|pre[-\s]?coro|coro|chorus|post[-\s]?coro|puente|bridge|interludio|interlude|instrumental|solo(?:\s+(?:de\s+)?(?:guitarra|piano|teclado|bater[ií]a))?|espont[aá]neo|salida|outro|final|fin|cierre)(?:\s+([0-9]+|[ivxlcdm]+))?$/i.exec(trimmed);
   if (numbered) {
     const rawName = numbered[1];
     const suffix = numbered[2]?.toUpperCase();

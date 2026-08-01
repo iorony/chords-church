@@ -50,6 +50,10 @@ Tu tarea es de ENRIQUECIMIENTO, no de reescritura:
 - Clasifica cada bloque como INTRO, VERSE, PRECHORUS, CHORUS, POSTCHORUS, BRIDGE, INTERLUDE, INSTRUMENTAL, SOLO, SPONTANEOUS, FINAL_CHORUS, OUTRO, END o UNKNOWN.
 - Usa ESTROFA para VERSE, PRE-CORO para PRECHORUS, CORO para CHORUS, PUENTE para BRIDGE e INTERLUDIO para INTERLUDE.
 - Si una etiqueta explícita ya existe, respétala y solo normalízala.
+- Un bloque inicial compuesto solo por una progresión de acordes es INTRO.
+- Un bloque con letra antes del primer CORO, PRE-CORO o PUENTE es ESTROFA.
+- Encabezados como CORO:, PUENTE: o -intro- siempre abren una nueva sección y nunca deben quedar dentro del contenido anterior.
+- Si aparecen PARTE I, PARTE II, PARTE III, etc., conserva esas etiquetas como PARTE. No las conviertas a ESTROFA salvo que el servidor ya las haya clasificado explícitamente así.
 - No inventes bloques, no elimines bloques y no unas dos secciones.
 - Puedes sugerir título, artista, tono, modulación, advertencias y correcciones.
 - No repitas ESTROFA, PRE-CORO o CORO cuando sean bloques idénticos; el servidor hará la deduplicación final.

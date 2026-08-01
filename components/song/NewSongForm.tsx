@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { renderSections } from '@/lib/chords/structure-parser';
 import ChordChart from './ChordChart';
 import type { AiReviewResponse } from '@/lib/ai/schema';
-import { sentenceCaseIfUniform } from '@/lib/services/text-utils';
+import { toProperName, toProperTitle } from '@/lib/services/text-utils';
 
 type Step = 'form' | 'reviewing' | 'compare';
 type ReviewMode = 'ai' | 'local';
@@ -102,8 +102,8 @@ export default function NewSongForm() {
       // comprobación con promote=true para aplicar la regla de reutilización.
       const resolved = await checkExistingSong(
         {
-          title: sentenceCaseIfUniform(title),
-          artist: sentenceCaseIfUniform(artist),
+          title: toProperTitle(title),
+          artist: toProperName(artist),
           content
         },
         { promote: true, silent: true }
@@ -142,7 +142,7 @@ export default function NewSongForm() {
     setStep('reviewing');
     try {
       const existing = await checkExistingSong(
-        { title: sentenceCaseIfUniform(title), artist: sentenceCaseIfUniform(artist), content },
+        { title: toProperTitle(title), artist: toProperName(artist), content },
         { promote: true }
       );
       if (existing) {
@@ -153,7 +153,7 @@ export default function NewSongForm() {
       const res = await fetch('/api/ai/review', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, artist, content, mode: reviewMode })
+        body: JSON.stringify({ title: toProperTitle(title), artist: toProperName(artist), content, mode: reviewMode })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -167,8 +167,8 @@ export default function NewSongForm() {
       setAlternateKey(data.alternateKey ?? null);
 
       const reviewedContent = renderSections(data.result.sections as any);
-      const reviewedTitle = sentenceCaseIfUniform(title || data.result.detectedTitle || 'Sin título');
-      const reviewedArtist = sentenceCaseIfUniform(artist || data.result.detectedArtist || '');
+      const reviewedTitle = toProperTitle(title || data.result.detectedTitle || 'Sin título');
+      const reviewedArtist = toProperName(artist || data.result.detectedArtist || '');
       try {
         await checkExistingSong({
           title: reviewedTitle,
@@ -210,7 +210,7 @@ export default function NewSongForm() {
   }
 
   async function resolveArtistId(name: string): Promise<string | null> {
-    const displayName = sentenceCaseIfUniform(name);
+    const displayName = toProperName(name);
     if (!displayName) return null;
 
     const normalized = displayName
@@ -253,8 +253,8 @@ export default function NewSongForm() {
       return;
     }
 
-    const finalTitle = sentenceCaseIfUniform(title || aiResult?.detectedTitle || 'Sin título');
-    const finalArtist = sentenceCaseIfUniform(artist || aiResult?.detectedArtist || '');
+    const finalTitle = toProperTitle(title || aiResult?.detectedTitle || 'Sin título');
+    const finalArtist = toProperName(artist || aiResult?.detectedArtist || '');
     const finalContent = useCorrected ? correctedContent : content;
 
     try {
@@ -374,7 +374,7 @@ export default function NewSongForm() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => setTitle((value) => sentenceCaseIfUniform(value))}
+              onBlur={() => setTitle((value) => toProperTitle(value))}
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
               placeholder="Título de la canción"
               required
@@ -385,7 +385,7 @@ export default function NewSongForm() {
             <input
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
-              onBlur={() => setArtist((value) => sentenceCaseIfUniform(value))}
+              onBlur={() => setArtist((value) => toProperName(value))}
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
               placeholder="Nombre del artista"
               required

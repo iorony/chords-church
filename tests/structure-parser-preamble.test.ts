@@ -20,3 +20,42 @@ Yo bendeciré tu nombre Cristo`);
     expect(sections.map((section) => section.label)).toEqual(['INTRO', 'ESTROFA']);
   });
 });
+
+describe('estructura mixta con preámbulo e introducción interna', () => {
+  it('separa intro, estrofa y respeta coro/intro/puente explícitos', () => {
+    const content = `Bm - G - D - A
+
+G
+Un estruendo de muchas aguas
+Bm        F#m
+Se escucha aquí
+G
+Trae sanidad, trae libertad
+
+CORO:
+D
+//Yo danzo en el río
+A
+Yo danzo en el río//
+
+-intro-
+Bm - G - D - A
+
+PUENTE:
+Bm G D A`;
+
+    const sections = buildSections(content);
+
+    expect(sections.map((section) => section.label)).toEqual([
+      'INTRO',
+      'ESTROFA',
+      'CORO',
+      'INTRO 2',
+      'PUENTE'
+    ]);
+    expect(sections[0].content).toBe('Bm - G - D - A');
+    expect(sections[1].content).toContain('Un estruendo de muchas aguas');
+    expect(sections[2].content).toContain('Yo danzo en el río');
+    expect(sections[3].content).toBe('Bm - G - D - A');
+  });
+});

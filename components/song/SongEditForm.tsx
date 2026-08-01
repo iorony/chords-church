@@ -7,7 +7,7 @@ import { parseChord } from '@/lib/chords/chord-parser';
 import { renderSections } from '@/lib/chords/structure-parser';
 import type { AiReviewResponse } from '@/lib/ai/schema';
 import ChordChart from './ChordChart';
-import { sentenceCaseIfUniform } from '@/lib/services/text-utils';
+import { toProperName, toProperTitle } from '@/lib/services/text-utils';
 
 export interface SongEditFormProps {
   songId: string;
@@ -57,7 +57,7 @@ export default function SongEditForm({
   const [error, setError] = useState<string | null>(null);
 
   async function resolveArtistId(name: string): Promise<string | null> {
-    const trimmed = sentenceCaseIfUniform(name);
+    const trimmed = toProperName(name);
     if (!trimmed) return null;
 
     const normalized = trimmed
@@ -90,7 +90,7 @@ export default function SongEditForm({
       const response = await fetch('/api/ai/review', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, artist: artistName, content, mode: analysisMode })
+        body: JSON.stringify({ title: toProperTitle(title), artist: toProperName(artistName), content, mode: analysisMode })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'No se pudo volver a analizar la canción.');
@@ -108,8 +108,8 @@ export default function SongEditForm({
     if (!analysisResult) return;
     setContent(renderSections(analysisResult.sections as any));
     setKeyInput(analysisResult.detectedKey);
-    if (!title.trim() && analysisResult.detectedTitle) setTitle(analysisResult.detectedTitle);
-    if (!artistName.trim() && analysisResult.detectedArtist) setArtistName(analysisResult.detectedArtist);
+    if (!title.trim() && analysisResult.detectedTitle) setTitle(toProperTitle(analysisResult.detectedTitle));
+    if (!artistName.trim() && analysisResult.detectedArtist) setArtistName(toProperName(analysisResult.detectedArtist));
     setAnalysisResult(null);
     setAlternateKey(null);
   }
@@ -125,8 +125,8 @@ export default function SongEditForm({
     }
 
     try {
-      const normalizedTitle = sentenceCaseIfUniform(title);
-      const normalizedArtist = sentenceCaseIfUniform(artistName);
+      const normalizedTitle = toProperTitle(title);
+      const normalizedArtist = toProperName(artistName);
 
       const duplicateResponse = await fetch('/api/songs/duplicates', {
         method: 'POST',
@@ -227,7 +227,7 @@ export default function SongEditForm({
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => setTitle((value) => sentenceCaseIfUniform(value))}
+              onBlur={() => setTitle((value) => toProperTitle(value))}
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
             />
           </div>
@@ -236,7 +236,7 @@ export default function SongEditForm({
             <input
               value={artistName}
               onChange={(e) => setArtistName(e.target.value)}
-              onBlur={() => setArtistName((value) => sentenceCaseIfUniform(value))}
+              onBlur={() => setArtistName((value) => toProperName(value))}
               placeholder="Opcional"
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
             />
