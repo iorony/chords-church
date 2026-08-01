@@ -1,0 +1,2 @@
+import LegalPage from '@/components/legal/LegalPage'; import ContactForm from '@/components/legal/ContactForm';
+export default function Page(){return <LegalPage title="Contacto"><section><p>Utiliza este formulario para consultas, privacidad, soporte, correcciones o reclamaciones de derechos. Incluye enlaces o datos suficientes para identificar el contenido.</p></section><ContactForm/></LegalPage>}

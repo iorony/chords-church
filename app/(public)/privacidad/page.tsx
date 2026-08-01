@@ -1,0 +1,10 @@
+import LegalPage from '@/components/legal/LegalPage';
+export default function Page(){return <LegalPage title="Política de privacidad">
+<section><h2>1. Datos tratados</h2><p>Podemos tratar correo electrónico, nombre visible, identificadores de cuenta, roles, canciones, favoritos, listas, propuestas, mensajes de contacto, registros técnicos y datos necesarios para autenticación y seguridad.</p></section>
+<section><h2>2. Finalidades</h2><p>Los datos se utilizan para prestar el servicio, autenticar usuarios, guardar preferencias, compartir listas, moderar contenido, responder solicitudes, prevenir abuso y mejorar la experiencia.</p></section>
+<section><h2>3. Proveedores</h2><p>La aplicación puede utilizar servicios de alojamiento, base de datos, autenticación, exportación y proveedores de inteligencia artificial. Solo se comparte la información necesaria para ejecutar cada función.</p></section>
+<section><h2>4. Canciones privadas</h2><p>Las canciones privadas se limitan al propietario, usuarios autorizados mediante listas compartidas y personal con funciones de administración o moderación cuando sea necesario. Ningún sistema conectado a Internet ofrece confidencialidad absoluta.</p></section>
+<section><h2>5. Conservación y seguridad</h2><p>La información se conserva mientras la cuenta esté activa o sea necesaria para cumplir las finalidades, resolver disputas, prevenir abuso o atender obligaciones legales. Se aplican controles razonables de acceso, autenticación y políticas de base de datos.</p></section>
+<section><h2>6. Derechos del usuario</h2><p>El usuario puede solicitar acceso, corrección o eliminación de sus datos, sujeto a obligaciones legales y a información que deba mantenerse para la integridad del servicio. Las solicitudes se presentan desde Contacto.</p></section>
+<section><h2>7. Cookies y sesión</h2><p>Se pueden utilizar cookies técnicas indispensables para mantener la sesión, seguridad y preferencias. No se emplean necesariamente con fines publicitarios.</p></section>
+</LegalPage>}

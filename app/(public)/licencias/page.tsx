@@ -1,0 +1,7 @@
+import LegalPage from '@/components/legal/LegalPage';
+const items=[['Next.js y React','Tecnologías de interfaz y renderizado; se distribuyen bajo licencias de código abierto.'],['Supabase','Servicios de base de datos, autenticación y almacenamiento.'],['TypeScript','Lenguaje y herramientas de tipado para JavaScript.'],['Tailwind CSS','Herramientas de estilos utilizadas por la interfaz.'],['Bibliotecas de exportación','La generación de PDF y DOCX utiliza dependencias de terceros sujetas a sus respectivas licencias.'],['Proveedores de IA','Groq, OpenRouter, Gemini, OpenAI u otros pueden procesar solicitudes conforme a sus propios términos y políticas.']];
+export default function Page(){return <LegalPage title="Licencias y atribuciones">
+<section><h2>Software de terceros</h2><p>Cancionero utiliza herramientas y servicios de terceros. Sus nombres y marcas pertenecen a sus respectivos titulares. La lista exacta de dependencias y versiones se encuentra en el archivo <code>package.json</code> del proyecto.</p></section>
+<section><div className="grid gap-3">{items.map(([n,d])=><div key={n} className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"><h3 className="font-semibold">{n}</h3><p>{d}</p></div>)}</div></section>
+<section><h2>Contenido musical</h2><p>La licencia del software de la plataforma no concede derechos sobre letras, composiciones, arreglos, marcas o cualquier obra incorporada por usuarios.</p></section>
+</LegalPage>}

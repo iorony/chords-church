@@ -1,0 +1,10 @@
+import LegalPage from '@/components/legal/LegalPage';
+export default function Page(){return <LegalPage title="Términos y condiciones de uso">
+<section><h2>1. Cuenta y seguridad</h2><p>El usuario debe proporcionar información veraz, proteger sus credenciales y comunicar accesos no autorizados. Las acciones realizadas desde una cuenta se atribuyen a su titular salvo prueba en contrario.</p></section>
+<section><h2>2. Uso permitido</h2><p>La plataforma puede utilizarse para organización musical, estudio, ensayos, actividades educativas y reuniones religiosas. Se prohíbe el uso ilícito, automatizado abusivo, fraudulento o que afecte la seguridad y disponibilidad del servicio.</p></section>
+<section><h2>3. Canciones públicas y privadas</h2><p>El propietario puede definir la visibilidad de una canción cuando las reglas del sistema lo permitan. Una canción privada puede seguir disponible para usuarios con acceso mediante una lista compartida. Cuando un usuario sin ese acceso intenta registrar una obra ya existente, el sistema puede convertir la canción existente en pública para evitar duplicados y habilitar la colaboración.</p></section>
+<section><h2>4. Listas compartidas</h2><p>El propietario de una lista decide con quién compartirla. Los destinatarios deben usar el acceso únicamente para la finalidad autorizada y no divulgar contenido privado fuera de la plataforma.</p></section>
+<section><h2>5. Correcciones y moderación</h2><p>Los usuarios pueden proponer correcciones. Una propuesta no modifica automáticamente la versión publicada y puede ser aceptada, rechazada o ajustada por propietarios, moderadores o administradores.</p></section>
+<section><h2>6. Suspensión o eliminación</h2><p>Las cuentas y contenidos pueden suspenderse o eliminarse ante incumplimientos, riesgos de seguridad, abuso, infracciones de derechos o requerimientos legales.</p></section>
+<section><h2>7. Servicios automáticos</h2><p>El análisis con inteligencia artificial y la detección local son herramientas de apoyo. El usuario debe revisar el resultado antes de guardar o utilizar una canción.</p></section>
+</LegalPage>}

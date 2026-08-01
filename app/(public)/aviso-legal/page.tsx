@@ -1,0 +1,9 @@
+import LegalPage from '@/components/legal/LegalPage';
+export default function Page(){return <LegalPage title="Aviso legal">
+<section><h2>1. Titular y objeto del sitio</h2><p>Cancionero es una plataforma colaborativa para organizar, consultar, transponer y compartir canciones con acordes, principalmente para estudio, ensayo y uso ministerial. El acceso al sitio implica la aceptación de este aviso y de los términos vigentes.</p></section>
+<section><h2>2. Propiedad intelectual</h2><p>Las letras, composiciones, nombres de canciones, arreglos y marcas pertenecen a sus respectivos autores, compositores, editoriales o titulares. Cancionero no reclama la propiedad de las obras musicales identificadas en la plataforma.</p></section>
+<section><h2>3. Contenido de usuarios</h2><p>Cada usuario es responsable del contenido que agrega o modifica y declara contar con autorización suficiente o con una base legal para utilizarlo. La administración podrá moderar, ocultar o eliminar material que infrinja derechos, las reglas de la plataforma o la legislación aplicable.</p></section>
+<section><h2>4. Disponibilidad y exactitud</h2><p>El servicio se ofrece tal como está. No se garantiza disponibilidad ininterrumpida, ausencia de errores ni exactitud absoluta en acordes, tonos, letras, análisis automáticos o transposiciones.</p></section>
+<section><h2>5. Limitación de responsabilidad</h2><p>La administración no responde por usos indebidos, pérdida de información, decisiones basadas en contenido aportado por terceros ni daños derivados de interrupciones, errores o servicios externos.</p></section>
+<section><h2>6. Cambios y contacto</h2><p>Este aviso puede actualizarse para reflejar cambios legales, técnicos o funcionales. Las solicitudes relacionadas con contenido, privacidad o derechos pueden enviarse desde la página de contacto.</p></section>
+</LegalPage>}
