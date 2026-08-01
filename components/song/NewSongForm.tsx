@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { renderSections } from '@/lib/chords/structure-parser';
+import { ALL_KEYS_GENERAL } from '@/lib/chords/transposition';
 import ChordChart from './ChordChart';
 import type { AiReviewResponse } from '@/lib/ai/schema';
 import { toProperName, toProperTitle } from '@/lib/services/text-utils';
@@ -32,6 +33,7 @@ export default function NewSongForm() {
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [useCorrected, setUseCorrected] = useState(true);
   const [alternateKey, setAlternateKey] = useState<{ key: string; confidence: number; isMinor: boolean } | null>(null);
+  const [selectedKey, setSelectedKey] = useState('');
 
   async function checkExistingSong(
     candidate: { title: string; artist: string; content?: string },
@@ -162,6 +164,7 @@ export default function NewSongForm() {
         return;
       }
       setAiResult(data.result);
+      setSelectedKey(data.result.detectedKey || 'C');
       setAiAvailable(data.aiAvailable);
       setAiWarning(reviewMode === 'ai' ? data.error : null);
       setAlternateKey(data.alternateKey ?? null);
@@ -194,19 +197,8 @@ export default function NewSongForm() {
   const correctedContent = aiResult ? renderSections(aiResult.sections as any) : '';
 
   function useAlternateKey() {
-    if (!aiResult || !alternateKey) return;
-    const previousKey = aiResult.detectedKey;
-    const previousConfidence = aiResult.keyConfidence;
-    setAiResult({
-      ...aiResult,
-      detectedKey: `${alternateKey.key}${alternateKey.isMinor ? 'm' : ''}`,
-      keyConfidence: alternateKey.confidence
-    });
-    setAlternateKey({
-      key: previousKey.replace(/m$/i, ''),
-      isMinor: /m$/i.test(previousKey),
-      confidence: previousConfidence
-    });
+    if (!alternateKey) return;
+    setSelectedKey(`${alternateKey.key}${alternateKey.isMinor ? 'm' : ''}`);
   }
 
   async function resolveArtistId(name: string): Promise<string | null> {
@@ -297,8 +289,8 @@ export default function NewSongForm() {
         artist_id: artistId,
         slug,
         normalized_title: slugBase.replace(/-/g, ' '),
-        original_key: aiResult?.detectedKey || 'C',
-        detected_key: aiResult?.detectedKey || 'C',
+        original_key: selectedKey || aiResult?.detectedKey || 'C',
+        detected_key: selectedKey || aiResult?.detectedKey || 'C',
         key_confidence: aiResult?.keyConfidence ?? null,
         content: finalContent,
         original_content: content,
@@ -329,7 +321,7 @@ export default function NewSongForm() {
     const { error: versionError } = await supabase.rpc('save_song_version', {
       target_song_id: song.id,
       new_content: finalContent,
-      new_key: aiResult?.detectedKey || 'C',
+      new_key: selectedKey || aiResult?.detectedKey || 'C',
       summary: 'Versión inicial'
     });
     if (versionError) console.error('No se pudo registrar la versión inicial:', versionError);
@@ -521,6 +513,32 @@ export default function NewSongForm() {
         </div>
       )}
 
+      <div className="max-w-sm rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+        <label htmlFor="final-song-key" className="block text-sm font-medium mb-1">
+          Tono final de la canción
+        </label>
+        <select
+          id="final-song-key"
+          value={selectedKey || aiResult?.detectedKey || 'C'}
+          onChange={(event) => setSelectedKey(event.target.value)}
+          className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
+        >
+          <optgroup label="Tonos mayores">
+            {ALL_KEYS_GENERAL.map((key) => (
+              <option key={key} value={key}>{key}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Tonos menores">
+            {ALL_KEYS_GENERAL.map((key) => (
+              <option key={`${key}m`} value={`${key}m`}>{key}m</option>
+            ))}
+          </optgroup>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          Puedes conservar el tono recomendado, usar el alternativo o elegir cualquier tono mayor o menor. Esta selección define el tono base al guardar y no transpone automáticamente el contenido.
+        </p>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-4">
         <div className="min-w-0 overflow-hidden border border-gray-200 dark:border-gray-800 rounded-lg p-4">
           <h2 className="font-semibold mb-2 text-sm text-gray-500">Contenido original</h2>
@@ -528,7 +546,7 @@ export default function NewSongForm() {
         </div>
         <div className="min-w-0 overflow-hidden border border-primary rounded-lg p-4">
           <h2 className="font-semibold mb-2 text-sm text-primary">
-            Versión estructurada {reviewMode === 'ai' ? 'con IA ' : 'localmente '}{aiResult && `— tono recomendado ${aiResult.detectedKey} (confianza ${Math.round(aiResult.keyConfidence * 100)}%)`}
+            Versión estructurada {reviewMode === 'ai' ? 'con IA ' : 'localmente '}{aiResult && `— tono seleccionado ${selectedKey || aiResult.detectedKey} (recomendado ${aiResult.detectedKey}, confianza ${Math.round(aiResult.keyConfidence * 100)}%)`}
           </h2>
           <ChordChart content={correctedContent} fontSizeClass="text-sm" />
         </div>
