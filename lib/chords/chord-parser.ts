@@ -268,7 +268,12 @@ export function detectSectionLabel(line: string): string | null {
   if (/^(?:CORO|CHORUS|ESTRIBILLO)$/.test(withoutSuffix)) return suffix ? `CORO ${suffix}` : 'CORO';
   if (/^(?:POST\s*CORO|POST\s*CHORUS)$/.test(withoutSuffix)) return suffix ? `POST-CORO ${suffix}` : 'POST-CORO';
   if (/^(?:PUENTE|BRIDGE)$/.test(withoutSuffix)) return suffix ? `PUENTE ${suffix}` : 'PUENTE';
-  if (/^(?:INTERLUDIO|INTERLUDE)$/.test(withoutSuffix)) return suffix ? `INTERLUDIO ${suffix}` : 'INTERLUDIO';
+  if (/^(?:INTERLUDIO|INTERLUDE|INTERMEDIO|BREAK|MUSICA)$/.test(withoutSuffix)) {
+    return suffix ? `INTERLUDIO ${suffix}` : 'INTERLUDIO';
+  }
+  if (/^(?:SECCION\s+INSTRUMENTAL)$/.test(withoutSuffix)) {
+    return suffix ? `INTERLUDIO ${suffix}` : 'INTERLUDIO';
+  }
   if (/^INSTRUMENTAL(?:\s+.+)?$/.test(withoutSuffix)) return suffix ? `INSTRUMENTAL ${suffix}` : 'INSTRUMENTAL';
 
   const soloMatch = new RegExp(`^SOLO(?:\\s+(?:DE\\s+)?(${INSTRUMENT_NAMES.slice(3, -1)}))?$`).exec(withoutSuffix);

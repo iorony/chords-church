@@ -22,6 +22,31 @@ describe('Section Parser v2', () => {
     expect(normalizeRepeatInstruction('-estrofa-coro-')).toBe('(REPETIR ESTROFA Y CORO)');
   });
 
+
+  it('normaliza intermedio y variantes como interludio', () => {
+    expect(detectSectionLabel('Intermedio:')).toBe('INTERLUDIO');
+    expect(detectSectionLabel('INTERLUDE')).toBe('INTERLUDIO');
+    expect(detectSectionLabel('BREAK')).toBe('INTERLUDIO');
+    expect(detectSectionLabel('Música')).toBe('INTERLUDIO');
+    expect(detectSectionLabel('Sección instrumental')).toBe('INTERLUDIO');
+
+    const content = `CORO
+F#m
+Fiesta en el desierto
+
+Intermedio:
+G A F#7 F#m
+
+PUENTE
+Bm
+Aunque venga la enfermedad`;
+    const rendered = renderSections(buildSections(content));
+
+    expect(rendered).toContain('[INTERLUDIO]\nG A F#7 F#m');
+    expect(rendered).toContain('[PUENTE]\nBm');
+    expect(rendered.indexOf('[INTERLUDIO]')).toBeLessThan(rendered.indexOf('[PUENTE]'));
+  });
+
   it('evita crear un intro falso antes de una indicación compuesta', () => {
     const content = `INTRO PIANO\nF --- | C --- |\n\nESTROFA\nF\nLa atmósfera cambiando está\n\nCORO\nF\nLlena este lugar\n\n-intro-\n-estrofa-coro-\n\nINSTRUMENTAL\nF --- | Am7 --- |\n\nSOLO - GUITARRA\nF - Dm7/11\n\nESTROFA FIN\nF\nTu Espíritu está aquí`;
     const rendered = renderSections(buildSections(content));
