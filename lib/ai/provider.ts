@@ -38,7 +38,7 @@ Tu tarea:
 4. Conservar literalmente la letra, los acordes, los separadores //, barras, guiones, marcadores de repetición y la alineación entre acordes y sílabas. No reescribas progresiones ni sustituyas acordes salvo que sea una corrección inequívoca registrada en corrections.
 5. Estructurar musicalmente la canción. Los valores permitidos para type son: INTRO, VERSE, PRECHORUS, CHORUS, POSTCHORUS, BRIDGE, INTERLUDE, INSTRUMENTAL, SOLO, SPONTANEOUS, FINAL_CHORUS, OUTRO, END, UNKNOWN.
 6. En label usa nombres visibles en español: INTRO, ESTROFA, PRE-CORO, CORO, POST-CORO, PUENTE, INTERLUDIO, INSTRUMENTAL, SOLO, ESPONTÁNEO, CORO FINAL, SALIDA o FINAL. Numera solo cuando realmente existan varias secciones del mismo tipo.
-7. Si el original YA trae encabezados de sección, conserva el orden y contenido de las secciones únicas. Normaliza VERSO o VERSE a ESTROFA, no inventes secciones adicionales y elimina repeticiones idénticas de ESTROFA, PRE-CORO o CORO.
+7. Si el original YA trae encabezados de sección, conserva el orden y contenido de las secciones únicas. Considera también encabezados decorativos como -Estrofa-, --Coro--, *Puente 2*, _Pre-coro_ o etiquetas con dos puntos. Normaliza VERSO o VERSE a ESTROFA, elimina el adorno y no repitas la etiqueta dentro de content. No inventes secciones adicionales y elimina repeticiones idénticas de ESTROFA, PRE-CORO o CORO.
 8. Si el original NO trae encabezados, debes inferir las secciones por su función musical y lírica; no conviertas automáticamente cada párrafo en una ESTROFA distinta. Agrupa líneas que pertenecen a la misma sección. Distingue especialmente:
    - INTRO: progresión instrumental inicial.
    - ESTROFA: desarrolla la narrativa o idea principal.
@@ -65,7 +65,7 @@ Responde ÚNICAMENTE con JSON válido, sin texto adicional ni backticks, con est
 
 export function buildUserPrompt(input: AiReviewInput): string {
   const sectionInstruction = input.localHints.hasExplicitSections
-    ? `El usuario SÍ proporcionó encabezados. Debes conservar las secciones únicas en el mismo orden: ${input.localHints.preStructuredSections.map((section) => `[${section.label}]`).join(', ')}. Solo normaliza VERSO/VERSE a ESTROFA y omite copias idénticas de ESTROFA, PRE-CORO o CORO.`
+    ? `El usuario SÍ proporcionó encabezados, incluso si venían decorados con guiones, asteriscos, guiones bajos, corchetes o dos puntos. Debes conservar las secciones únicas en el mismo orden: ${input.localHints.preStructuredSections.map((section) => `[${section.label}]`).join(', ')}. Elimina del contenido líneas decorativas como -Estrofa- o -Coro-. Solo normaliza VERSO/VERSE a ESTROFA y omite copias idénticas de ESTROFA, PRE-CORO o CORO.`
     : `El usuario NO proporcionó encabezados de sección. Debes analizar la función musical de cada bloque y crear una estructura semántica correcta (INTRO, ESTROFA, PRE-CORO, CORO, PUENTE, etc.). Las separaciones en blanco son pistas, no límites obligatorios: puedes unir bloques que pertenezcan a una misma sección.`;
 
   return `Título ingresado por el usuario: ${input.title || '(no proporcionado)'}

@@ -168,10 +168,22 @@ const SECTION_ALIASES: Array<{ regex: RegExp; label: string }> = [
  *   INTERLUDIO: -> INTERLUDIO
  */
 export function detectSectionLabel(line: string): string | null {
+  /*
+   * Limpia únicamente adornos que envuelven TODO el encabezado. Así se
+   * reconocen formatos pegados desde Word, PDF o sitios web como:
+   *   -Estrofa-
+   *   -- CORO --
+   *   *Puente 2*
+   *   _Pre-coro_
+   * sin alterar el guion interno legítimo de PRE-CORO o POST-CORO.
+   */
   const trimmed = line
     .trim()
-    .replace(/^\[|\]$/g, '')
-    .replace(/\s*:\s*$/, '')
+    .replace(/^\[\s*|\s*\]$/g, '')
+    .replace(/^\(\s*|\s*\)$/g, '')
+    .replace(/^\{\s*|\s*\}$/g, '')
+    .replace(/^[`*_#~=\-\u2010\u2011\u2012\u2013\u2014\u2212\s]+/, '')
+    .replace(/[`*_#~=\-\u2010\u2011\u2012\u2013\u2014\u2212:\s]+$/, '')
     .trim();
 
   const numbered = /^(estrofa|verso|verse|intro|pre[-\s]?coro|coro|chorus|post[-\s]?coro|puente|bridge|interludio|instrumental|solo|espont[aá]neo|salida|final)(?:\s+([0-9]+|[ivxlcdm]+))?$/i.exec(trimmed);
