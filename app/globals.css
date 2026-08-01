@@ -138,3 +138,38 @@ tr {
 .legal-content h3 { @apply mb-1 font-semibold text-gray-950 dark:text-white; }
 .legal-content p { @apply text-gray-700 dark:text-gray-300; }
 .legal-content code { @apply rounded bg-gray-100 px-1 py-0.5 text-sm dark:bg-gray-900; }
+
+/* En móvil, el modo presentación muestra una canción completa como una sola
+   página vertical. Las líneas largas nunca se recortan: pueden desplazarse
+   horizontalmente dentro de su bloque mientras toda la canción se recorre con
+   scroll vertical. */
+@media (max-width: 699px) {
+  .presentation-song-content-mobile {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .presentation-song-content-mobile > div,
+  .presentation-song-content-mobile > span {
+    min-width: max-content;
+  }
+}
+
+/* El tamaño elegido con A−/A+ se hereda por igual en etiquetas de sección,
+   letras y acordes. Esta regla debe ir después del ajuste móvil general de
+   .song-content, que de otro modo fija el texto en 0.78rem. */
+.presentation-song-content,
+.presentation-song-content-mobile {
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+.presentation-song-content .chord,
+.presentation-song-content-mobile .chord,
+.presentation-song-content .section-label,
+.presentation-song-content-mobile .section-label {
+  font-size: inherit !important;
+  line-height: inherit !important;
+}

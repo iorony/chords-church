@@ -142,15 +142,65 @@ export function buildSections(content: string): SongSection[] {
   }
 
   if (hasExplicitLabels) {
+    let foundFirstHeader = false;
+    let preambleBuffer: string[] = [];
+
+    const compactNonBlank = (buffer: string[]) => buffer.filter((line) => line.trim());
+    const preambleIsClearIntro = (buffer: string[]) => {
+      const meaningful = compactNonBlank(buffer);
+      if (meaningful.length < 2) return false;
+
+      // Solo se crea un INTRO implícito cuando el bloque previo contiene
+      // notación musical inequívoca. Un acorde aislado antes de «-Estrofa-»
+      // normalmente pertenece a esa estrofa y no debe generar ESTROFA 1 vacía.
+      const allChordNotation = meaningful.every((line) => isChordLine(line));
+      const hasProgressionMarker = meaningful.some((line) => /[|/]|(?:^|\s)x\d+(?:\s|$)/i.test(line));
+      return allChordNotation && hasProgressionMarker;
+    };
+
     for (const line of lines) {
       if (line.kind === 'section-header') {
+        const nextLabel = line.sectionLabel || null;
+
+        if (!foundFirstHeader) {
+          foundFirstHeader = true;
+
+          if (compactNonBlank(preambleBuffer).length) {
+            if (preambleIsClearIntro(preambleBuffer) && nextLabel !== 'INTRO') {
+              currentBuffer = preambleBuffer;
+              flush('INTRO');
+            } else {
+              // Adjunta el contenido anterior al primer encabezado explícito.
+              // Corrige casos como:
+              //   D
+              //   -Estrofa-
+              // evitando crear una ESTROFA adicional solo para «D».
+              currentBuffer = preambleBuffer;
+            }
+          }
+          preambleBuffer = [];
+          currentLabel = nextLabel;
+          continue;
+        }
+
         flush(currentLabel);
-        currentLabel = line.sectionLabel || null;
+        currentLabel = nextLabel;
+      } else if (!foundFirstHeader) {
+        if (line.kind !== 'blank') {
+          preambleBuffer.push(line.raw);
+        } else if (preambleBuffer.length && preambleBuffer[preambleBuffer.length - 1] !== '') {
+          preambleBuffer.push('');
+        }
       } else if (line.kind !== 'blank') {
         currentBuffer.push(line.raw);
       } else if (currentBuffer.length && currentBuffer[currentBuffer.length - 1] !== '') {
         currentBuffer.push('');
       }
+    }
+
+    // Por seguridad, si no se consumió el preámbulo, intégralo antes de cerrar.
+    if (!foundFirstHeader && compactNonBlank(preambleBuffer).length) {
+      currentBuffer = preambleBuffer;
     }
     flush(currentLabel);
   } else {

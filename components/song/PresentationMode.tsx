@@ -276,10 +276,24 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     ALL_KEYS_GENERAL[((keyToIndex(song.baseKey) + semitones) % 12 + 12) % 12] + (isMinorKey ? 'm' : '');
 
   const sections = useMemo(() => buildSections(transposedContent), [transposedContent]);
+  const isMobile = viewport.width < 700;
   const layout = useMemo(
     () => buildSectionPages(sections, viewport.width, viewport.height, fontSize, fontSizeManuallyAdjusted),
     [sections, viewport, fontSize, fontSizeManuallyAdjusted]
   );
+
+  // En móvil cada canción se presenta como un documento continuo de una sola
+  // página. El usuario recorre toda la letra verticalmente; no se divide en
+  // columnas ni páginas internas. Cuando el tamaño fue ajustado manualmente se
+  // respeta y, si una línea excede el ancho, queda disponible el scroll
+  // horizontal en lugar de recortarla.
+  const mobileFontRem = useMemo(() => {
+    if (!isMobile) return layout.fontRem;
+    if (fontSizeManuallyAdjusted) {
+      return Math.min(MAX_FONT_REM, Math.max(MIN_FONT_REM, fontSize));
+    }
+    return widthFittedFontRem(sections, viewport.width, 1, fontSize);
+  }, [isMobile, layout.fontRem, fontSizeManuallyAdjusted, fontSize, sections, viewport.width]);
 
   const currentPage = layout.pages[Math.min(pageIndex, layout.pages.length - 1)] ?? Array.from({ length: layout.columns }, () => []);
 
@@ -308,6 +322,13 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
   }, []);
 
   const nextPage = useCallback(() => {
+    if (isMobile) {
+      if (songIndex < songs.length - 1) {
+        setPageIndex(0);
+        setSongIndex(songIndex + 1);
+      }
+      return;
+    }
     // No hacemos setSongIndex dentro del actualizador de setPageIndex.
     // React puede ejecutar los actualizadores funcionales más de una vez en
     // desarrollo (Strict Mode), lo que provocaba saltos de dos canciones y que
@@ -321,9 +342,16 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
       setPageIndex(0);
       setSongIndex(songIndex + 1);
     }
-  }, [pageIndex, layout.pages.length, songIndex, songs.length]);
+  }, [isMobile, pageIndex, layout.pages.length, songIndex, songs.length]);
 
   const prevPage = useCallback(() => {
+    if (isMobile) {
+      if (songIndex > 0) {
+        setPageIndex(0);
+        setSongIndex(songIndex - 1);
+      }
+      return;
+    }
     if (pageIndex > 0) {
       setPageIndex(pageIndex - 1);
       return;
@@ -334,7 +362,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
       setPageIndex(0);
       setSongIndex(songIndex - 1);
     }
-  }, [pageIndex, songIndex]);
+  }, [isMobile, pageIndex, songIndex]);
 
   useEffect(() => {
     const updateViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
@@ -476,51 +504,88 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
         </div>
       )}
 
-      <main className="absolute inset-x-0 top-11 bottom-14 sm:top-12 sm:bottom-14 overflow-hidden px-3 sm:px-6 py-2 sm:py-3">
+      <main
+        className={`absolute inset-x-0 top-11 bottom-14 sm:top-12 sm:bottom-14 px-3 sm:px-6 py-2 sm:py-3 ${
+          isMobile ? 'overflow-y-auto overflow-x-hidden overscroll-contain' : 'overflow-hidden'
+        }`}
+      >
         {!hasSongs ? (
           <div className="flex h-full items-center justify-center text-center opacity-70">
             No hay canciones disponibles para presentar.
           </div>
-        ) : (
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="relative mb-1.5 shrink-0 px-12 text-center sm:px-20">
-            <h1
-              className="truncate font-bold opacity-90"
-              style={{ fontSize: `${Math.max(1, layout.fontRem * 1.12)}rem` }}
-            >
-              {song.title}
-            </h1>
-            <p className="truncate text-xs sm:text-sm opacity-65">
-              {song.artist} <span className="mx-1.5 opacity-60">•</span> Tono: {currentKey}
-            </p>
-            <span className="absolute right-0 top-1 text-xs opacity-55">
-              Página {pageIndex + 1}/{layout.pages.length}
-            </span>
-          </div>
-
-          <div
-            className="grid min-h-0 flex-1 gap-3 sm:gap-5 overflow-hidden"
-            style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
-          >
-            {visibleColumns.map((column, columnNumber) => (
-              <div
-                key={columnNumber}
-                className={`min-w-0 overflow-hidden ${columnNumber > 0 ? `border-l pl-3 sm:pl-5 ${dark ? 'border-gray-800' : 'border-gray-200'}` : ''}`}
+        ) : isMobile ? (
+          <article className="mx-auto w-full max-w-full pb-8">
+            <header className="relative mb-4 px-10 text-center">
+              <h1
+                className="font-bold opacity-90"
+                style={{ fontSize: `${Math.max(1.05, mobileFontRem * 1.12)}rem` }}
               >
-                <div className="flex h-full min-h-0 flex-col justify-start gap-[0.55em] overflow-hidden" style={{ fontSize: `${layout.fontRem}rem`, lineHeight: viewport.width < 700 ? 1.34 : 1.45 }}>
-                  {column.map((section) => (
-                    <section key={`${section.order}-${section.label}`} className="shrink-0 break-inside-avoid overflow-hidden">
-                      <div className="mb-[0.18em] font-mono font-semibold text-primary dark:text-accent-teal">
-                        [{section.label}]
-                      </div>
-                      <ChordChart content={section.content} fontSizeClass="" containerClassName="presentation-song-content" />
-                    </section>
-                  ))}
+                {song.title}
+              </h1>
+              <p className="text-xs opacity-65">
+                {song.artist} <span className="mx-1.5 opacity-60">•</span> Tono: {currentKey}
+              </p>
+              <span className="absolute right-0 top-1 text-[10px] opacity-55">Página 1/1</span>
+            </header>
+
+            <div
+              className="flex min-w-0 flex-col gap-[0.8em]"
+              style={{ fontSize: `${mobileFontRem}rem`, lineHeight: 1.42 }}
+            >
+              {sections.map((section) => (
+                <section key={`${section.order}-${section.label}`} className="min-w-0">
+                  <div className="mb-[0.22em] font-mono font-semibold text-primary dark:text-accent-teal">
+                    [{section.label}]
+                  </div>
+                  <ChordChart
+                    content={section.content}
+                    fontSizeClass=""
+                    containerClassName="presentation-song-content presentation-song-content-mobile"
+                  />
+                </section>
+              ))}
+            </div>
+          </article>
+        ) : (
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="relative mb-1.5 shrink-0 px-12 text-center sm:px-20">
+              <h1
+                className="truncate font-bold opacity-90"
+                style={{ fontSize: `${Math.max(1, layout.fontRem * 1.12)}rem` }}
+              >
+                {song.title}
+              </h1>
+              <p className="truncate text-xs sm:text-sm opacity-65">
+                {song.artist} <span className="mx-1.5 opacity-60">•</span> Tono: {currentKey}
+              </p>
+              <span className="absolute right-0 top-1 text-xs opacity-55">
+                Página {pageIndex + 1}/{layout.pages.length}
+              </span>
+            </div>
+
+            <div
+              className="grid min-h-0 flex-1 gap-3 sm:gap-5 overflow-hidden"
+              style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
+            >
+              {visibleColumns.map((column, columnNumber) => (
+                <div
+                  key={columnNumber}
+                  className={`min-w-0 overflow-hidden ${columnNumber > 0 ? `border-l pl-3 sm:pl-5 ${dark ? 'border-gray-800' : 'border-gray-200'}` : ''}`}
+                >
+                  <div className="flex h-full min-h-0 flex-col justify-start gap-[0.55em] overflow-hidden" style={{ fontSize: `${layout.fontRem}rem`, lineHeight: 1.45 }}>
+                    {column.map((section) => (
+                      <section key={`${section.order}-${section.label}`} className="shrink-0 break-inside-avoid overflow-hidden">
+                        <div className="mb-[0.18em] font-mono font-semibold text-primary dark:text-accent-teal">
+                          [{section.label}]
+                        </div>
+                        <ChordChart content={section.content} fontSizeClass="" containerClassName="presentation-song-content" />
+                      </section>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
         )}
       </main>
 
