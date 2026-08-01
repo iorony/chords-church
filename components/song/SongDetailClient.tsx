@@ -141,29 +141,19 @@ export default function SongDetailClient({
             {artistName && <p className="mt-1 text-gray-500">{artistName}</p>}
           </div>
 
-          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:min-w-[26rem]">
+          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:min-w-[34rem] sm:grid-cols-4">
             {canManageSong && status !== 'published' && (
               <button
                 onClick={publishSong}
                 disabled={publishing}
-                className="col-span-2 sm:col-span-1 inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md bg-primary text-white text-sm disabled:opacity-50"
+                className="col-span-2 sm:col-span-4 inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-3 py-2 text-sm text-white disabled:opacity-50"
               >
                 {publishing ? 'Publicando...' : 'Publicar canción'}
               </button>
             )}
 
-            {/* "Publicada" y "Pública/Privada" son indicadores de estado
-                internos: un visitante anónimo no inicia sesión y no le
-                aportan nada, así que solo se muestran a usuarios
-                registrados. */}
-            {isLoggedIn && status === 'published' && (
-              <span className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-accent-teal text-accent-teal text-sm">
-                Publicada
-              </span>
-            )}
-
-            {canManageSong && (
-              <div className="col-span-2 flex min-h-10 items-center justify-between gap-2 rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1">
+            {canManageSong ? (
+              <div className="flex min-h-11 items-center justify-between gap-2 rounded-md border border-gray-300 px-3 py-1 dark:border-gray-700">
                 <label htmlFor="song-visibility" className="text-xs text-gray-500 whitespace-nowrap">
                   Visibilidad
                 </label>
@@ -172,51 +162,43 @@ export default function SongDetailClient({
                   value={visibility}
                   disabled={savingVisibility}
                   onChange={(event) => updateVisibility(event.target.value as 'public' | 'private')}
-                  className="bg-transparent py-1 text-sm font-medium outline-none disabled:opacity-50"
+                  className="min-w-0 bg-transparent py-1 text-right text-sm font-medium outline-none disabled:opacity-50"
                   title={!canSetPrivate ? 'No puede hacerse privada porque otro usuario ya la utiliza en una lista propia.' : undefined}
                 >
                   <option value="public">Pública</option>
                   <option value="private" disabled={!canSetPrivate}>Privada</option>
                 </select>
-                {savingVisibility && <span className="text-xs text-gray-400">Guardando…</span>}
+                {savingVisibility && <span className="sr-only">Guardando visibilidad</span>}
               </div>
-            )}
-
-            {/* Para quien no puede administrar la canción, el estado de
-                visibilidad solo interesa mientras está en borrador (es
-                información poco común y útil de aclarar); una vez
-                publicada, "Pública" es redundante junto a "Publicada". */}
-            {!canManageSong && isLoggedIn && status !== 'published' && (
-              <span className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm">
-                {visibility === 'public' ? 'Pública' : 'Privada'}
-              </span>
-            )}
+            ) : isLoggedIn ? (
+              <div className="inline-flex min-h-11 items-center justify-between gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700">
+                <span className="text-xs text-gray-500">Visibilidad</span>
+                <span className="font-medium">{visibility === 'public' ? 'Pública' : 'Privada'}</span>
+              </div>
+            ) : null}
 
             {isLoggedIn && (
               <button
                 onClick={toggleFavorite}
-                className={`inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border text-sm ${favorite ? 'bg-accent-gold/20 border-accent-gold' : 'border-gray-300 dark:border-gray-700'}`}
+                className={`inline-flex min-h-11 items-center justify-center rounded-md border px-3 py-2 text-center text-sm ${favorite ? 'border-accent-gold bg-accent-gold/20' : 'border-gray-300 dark:border-gray-700'}`}
               >
                 {favorite ? '★ En favoritos' : '☆ Agregar a favoritos'}
               </button>
             )}
 
-            {/* Exportar a PDF/DOCX requiere sesión (el endpoint las
-                rechaza si no hay usuario) — antes se mostraban siempre y
-                fallaban con un error genérico para visitantes anónimos. */}
             {isLoggedIn ? (
               <>
                 <button
                   onClick={() => handleExport('pdf')}
                   disabled={exporting !== null}
-                  className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-gray-700"
                 >
                   {exporting === 'pdf' ? 'Generando...' : 'PDF'}
                 </button>
                 <button
                   onClick={() => handleExport('docx')}
                   disabled={exporting !== null}
-                  className="inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-gray-700"
                 >
                   {exporting === 'docx' ? 'Generando...' : 'DOCX'}
                 </button>
@@ -224,9 +206,9 @@ export default function SongDetailClient({
             ) : (
               <Link
                 href="/login"
-                className="col-span-2 inline-flex min-h-10 items-center justify-center px-3 py-2 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 hover:text-primary"
+                className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-md border border-dashed border-gray-300 px-3 py-2 text-center text-sm text-gray-500 hover:text-primary sm:col-span-4 dark:border-gray-700"
               >
-                Inicia sesión para exportar a PDF/DOCX
+                Inicia sesión para guardar favoritos y exportar
               </Link>
             )}
           </div>
