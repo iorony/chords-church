@@ -8,7 +8,7 @@ import { renderSections } from '@/lib/chords/structure-parser';
 import { ALL_KEYS_GENERAL } from '@/lib/chords/transposition';
 import ChordChart from './ChordChart';
 import type { AiReviewResponse } from '@/lib/ai/schema';
-import { toProperName, toProperTitle } from '@/lib/services/text-utils';
+import { normalizeText, toProperName, toProperTitle } from '@/lib/services/text-utils';
 
 type Step = 'form' | 'reviewing' | 'compare';
 type ReviewMode = 'ai' | 'local';
@@ -27,6 +27,9 @@ export default function NewSongForm() {
   const [visibility, setVisibility] = useState<'public' | 'private'>('private');
   const [duplicateMatch, setDuplicateMatch] = useState<{ id: string; slug: string; title: string; artist?: string | null; promotedToPublic?: boolean; sharedListAccess?: boolean; canProposeCorrection?: boolean } | null>(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [artistSuggestions, setArtistSuggestions] = useState<Array<{ id: string; name: string; normalized_name: string | null }>>([]);
+  const [showArtistSuggestions, setShowArtistSuggestions] = useState(false);
+  const [checkingArtists, setCheckingArtists] = useState(false);
 
   const [aiResult, setAiResult] = useState<AiReviewResponse | null>(null);
   const [aiAvailable, setAiAvailable] = useState(true);
@@ -65,6 +68,85 @@ export default function NewSongForm() {
     setDuplicateMatch(null);
     if (!options.silent) setError(null);
     return null;
+  }
+
+  useEffect(() => {
+    const query = artist.trim();
+    if (query.length < 2) {
+      setArtistSuggestions([]);
+      setShowArtistSuggestions(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setCheckingArtists(true);
+      try {
+        const normalizedQuery = normalizeText(query);
+        const { data, error: artistLookupError } = await supabase
+          .from('artists')
+          .select('id, name, normalized_name')
+          .order('name')
+          .limit(500);
+
+        if (artistLookupError) throw artistLookupError;
+
+        const ranked = (data || [])
+          .map((item) => {
+            const normalizedName = normalizeText(item.normalized_name || item.name);
+            let score = 0;
+            if (normalizedName === normalizedQuery) score = 100;
+            else if (normalizedName.startsWith(normalizedQuery)) score = 90;
+            else if (normalizedName.includes(normalizedQuery)) score = 80;
+            else {
+              const queryTokens = normalizedQuery.split(' ').filter(Boolean);
+              const nameTokens = normalizedName.split(' ').filter(Boolean);
+              const matches = queryTokens.filter((token) =>
+                nameTokens.some((nameToken) => nameToken.startsWith(token) || token.startsWith(nameToken))
+              ).length;
+              score = queryTokens.length ? (matches / queryTokens.length) * 70 : 0;
+            }
+            return { item, score };
+          })
+          .filter(({ score }) => score >= 45)
+          .sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name, 'es'))
+          .slice(0, 8)
+          .map(({ item }) => item);
+
+        setArtistSuggestions(ranked);
+        setShowArtistSuggestions(ranked.length > 0);
+      } catch (artistLookupError) {
+        console.warn('No se pudieron cargar sugerencias de artistas:', artistLookupError);
+        setArtistSuggestions([]);
+      } finally {
+        setCheckingArtists(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [artist]);
+
+  function normalizeArtistAndUseExisting() {
+    const proper = toProperName(artist);
+    const normalized = normalizeText(proper);
+    const exact = artistSuggestions.find(
+      (item) => normalizeText(item.normalized_name || item.name) === normalized
+    );
+
+    if (exact) {
+      setArtist(exact.name);
+      setShowArtistSuggestions(false);
+      return;
+    }
+
+    // Si solo existe una coincidencia clara por prefijo, usa el nombre oficial
+    // almacenado para evitar duplicados como "Miel san marcos"/"Miel San Marcos".
+    const strongMatches = artistSuggestions.filter((item) => {
+      const candidate = normalizeText(item.normalized_name || item.name);
+      return candidate.startsWith(normalized) || normalized.startsWith(candidate);
+    });
+
+    setArtist(strongMatches.length === 1 ? strongMatches[0].name : proper);
+    setShowArtistSuggestions(false);
   }
 
   useEffect(() => {
@@ -127,13 +209,17 @@ export default function NewSongForm() {
   }
 
   async function handleReview() {
+    const normalizedTitle = toProperTitle(title);
+    const normalizedArtist = toProperName(artist);
+    setTitle(normalizedTitle);
+    setArtist(normalizedArtist);
     setError(null);
     setDuplicateMatch(null);
-    if (!title.trim()) {
+    if (!normalizedTitle) {
       setError('El título de la canción es obligatorio.');
       return;
     }
-    if (!artist.trim()) {
+    if (!normalizedArtist) {
       setError('El artista de la canción es obligatorio.');
       return;
     }
@@ -144,7 +230,7 @@ export default function NewSongForm() {
     setStep('reviewing');
     try {
       const existing = await checkExistingSong(
-        { title: toProperTitle(title), artist: toProperName(artist), content },
+        { title: normalizedTitle, artist: normalizedArtist, content },
         { promote: true }
       );
       if (existing) {
@@ -155,7 +241,7 @@ export default function NewSongForm() {
       const res = await fetch('/api/ai/review', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: toProperTitle(title), artist: toProperName(artist), content, mode: reviewMode })
+        body: JSON.stringify({ title: normalizedTitle, artist: normalizedArtist, content, mode: reviewMode })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -372,16 +458,42 @@ export default function NewSongForm() {
               required
             />
           </div>
-          <div>
+          <div className="relative">
             <label className="block text-sm mb-1">Artista <span className="text-danger">*</span></label>
             <input
               value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-              onBlur={() => setArtist((value) => toProperName(value))}
+              onChange={(e) => {
+                setArtist(e.target.value);
+                setShowArtistSuggestions(true);
+              }}
+              onFocus={() => artistSuggestions.length > 0 && setShowArtistSuggestions(true)}
+              onBlur={() => window.setTimeout(normalizeArtistAndUseExisting, 120)}
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
               placeholder="Nombre del artista"
+              autoComplete="off"
               required
             />
+            {checkingArtists && (
+              <span className="absolute right-3 top-9 text-xs text-gray-500">Buscando...</span>
+            )}
+            {showArtistSuggestions && artistSuggestions.length > 0 && (
+              <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-950">
+                {artistSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setArtist(suggestion.name);
+                      setShowArtistSuggestions(false);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    {suggestion.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         {checkingDuplicate && <p className="text-xs text-gray-500">Comprobando si la canción ya existe...</p>}

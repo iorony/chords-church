@@ -72,8 +72,11 @@ export function toProperName(input: string): string {
       const plain = word.replace(/^[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/g, '');
       const normalized = plain.toLocaleLowerCase('es');
 
+      // Los conectores tienen prioridad sobre la conservación de siglas.
+      // Así, títulos como "Fiesta EN EL Desierto" quedan como
+      // "Fiesta en el Desierto", en lugar de conservar EN/EL en mayúsculas.
+      if (index > 0 && NAME_CONNECTORS.has(normalized)) return normalized;
       if (/^[A-ZÁÉÍÓÚÜÑ]{2,4}$/.test(plain)) return word;
-      if (index > 0 && NAME_CONNECTORS.has(normalized)) return word.toLocaleLowerCase('es');
 
       return word
         .split(/([-'’])/g)
@@ -88,7 +91,26 @@ export function toProperName(input: string): string {
  * minúscula salvo cuando son la primera palabra.
  */
 export function toProperTitle(input: string): string {
-  return toProperName(input);
+  const value = input.trim().replace(/\s+/g, ' ');
+  if (!value) return '';
+
+  return value
+    .split(' ')
+    .map((word, index) => {
+      const plain = word.replace(/^[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/g, '');
+      const normalized = plain.toLocaleLowerCase('es');
+
+      if (index > 0 && NAME_CONNECTORS.has(normalized)) return normalized;
+      // Conserva únicamente numeración romana; en títulos, palabras cortas en
+      // mayúsculas como RÍO, MI o EL no deben confundirse con siglas.
+      if (/^(I|II|III|IV|V|VI|VII|VIII|IX|X)$/i.test(plain)) return plain.toLocaleUpperCase('es');
+
+      return word
+        .split(/([-'’])/g)
+        .map((part) => (/^[-'’]$/.test(part) ? part : capitalizeWord(part)))
+        .join('');
+    })
+    .join(' ');
 }
 
 /** Firma simple de acordes de una canción, usada para detección de duplicados */
