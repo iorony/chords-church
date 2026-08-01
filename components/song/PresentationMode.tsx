@@ -387,6 +387,30 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     return () => window.removeEventListener('resize', updateViewport);
   }, []);
 
+  // Conserva el tamaño seleccionado para el siguiente uso del modo
+  // presentación. Solo se restaura cuando el usuario ya lo ajustó antes.
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('presentationFontSize');
+      if (!stored) return;
+      const parsed = Number(stored);
+      if (!Number.isFinite(parsed)) return;
+      setFontSize(Math.min(MAX_FONT_REM, Math.max(MIN_FONT_REM, parsed)));
+      setFontSizeManuallyAdjusted(true);
+    } catch {
+      // localStorage puede no estar disponible en navegación privada.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!fontSizeManuallyAdjusted) return;
+    try {
+      window.localStorage.setItem('presentationFontSize', String(fontSize));
+    } catch {
+      // No bloqueamos la presentación si el navegador impide persistirlo.
+    }
+  }, [fontSize, fontSizeManuallyAdjusted]);
+
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -563,9 +587,9 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
             {hasSongs ? songIndex + 1 : 0}/{songs.length}: {song.title}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex sm:gap-3">
           <button onClick={() => setShowKeyPicker((v) => !v)} className="opacity-70 hover:opacity-100">
-            {currentKey} <span className="hidden sm:inline">(T)</span>
+            {currentKey} <span>(T)</span>
           </button>
           <button onClick={() => { setFontSizeManuallyAdjusted(true); setFontSize((f) => Math.max(f - 0.15, MIN_FONT_REM)); }} aria-label="Reducir texto">
             A−
@@ -579,7 +603,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
             aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
           >
-            {isFullscreen ? '🗗' : '⛶'}<span className="hidden sm:inline"> F</span>
+            {isFullscreen ? '🗗' : '⛶'} F
           </button>
           <button onClick={() => setDark((d) => !d)} className="opacity-70 hover:opacity-100">
             {dark ? '☀' : '🌙'}
@@ -588,7 +612,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
       </div>
 
       {showKeyPicker && (
-        <div className="absolute top-12 right-3 sm:right-4 z-30 max-w-[calc(100vw-1.5rem)] bg-gray-900 text-white rounded-lg p-3 grid grid-cols-4 gap-2 text-sm shadow-xl">
+        <div className="absolute top-12 right-3 z-30 hidden sm:grid sm:right-4 max-w-[calc(100vw-1.5rem)] bg-gray-900 text-white rounded-lg p-3 grid-cols-4 gap-2 text-sm shadow-xl">
           {ALL_KEYS_GENERAL.map((k) => (
             <button
               key={k}
@@ -607,7 +631,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
 
       <main
         ref={contentScrollRef}
-        className={`absolute inset-x-0 top-11 bottom-14 sm:top-12 sm:bottom-14 px-3 sm:px-6 py-2 sm:py-3 ${
+        className={`absolute inset-x-0 top-11 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] sm:top-12 sm:bottom-14 px-3 sm:px-6 py-2 sm:py-3 ${
           isMobile ? 'overflow-y-auto overflow-x-hidden overscroll-contain' : 'overflow-hidden'
         }`}
       >
@@ -691,10 +715,69 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
         )}
       </main>
 
+      {/* Barra móvil para uso en vivo: controles grandes, accesibles con una mano
+          y separados del contenido mediante el safe-area del dispositivo. */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between gap-3 px-3 sm:px-5 py-2 text-xs sm:text-sm transition-opacity ${
+        className={`absolute bottom-0 left-0 right-0 z-30 grid grid-cols-5 items-center gap-1 border-t px-2 pt-2 sm:hidden ${
           controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        } ${dark ? 'bg-black/90' : 'bg-white/95'} border-t ${dark ? 'border-gray-800' : 'border-gray-200'}`}
+        } ${dark ? 'border-gray-800 bg-black/90' : 'border-gray-200 bg-white/95'} backdrop-blur-md transition-opacity`}
+        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}
+      >
+        <button
+          onClick={prevPage}
+          disabled={!hasSongs || songIndex === 0}
+          className="flex h-12 items-center justify-center rounded-xl text-2xl opacity-90 active:scale-95 disabled:opacity-25"
+          aria-label="Canción anterior"
+          title="Canción anterior"
+        >
+          ◀
+        </button>
+        <button
+          onClick={() => {
+            setFontSizeManuallyAdjusted(true);
+            setFontSize((f) => Math.max(f - 0.15, MIN_FONT_REM));
+          }}
+          className="flex h-12 items-center justify-center rounded-xl text-base font-semibold opacity-90 active:scale-95"
+          aria-label="Reducir tamaño de secciones, letra y acordes"
+          title="Reducir tamaño"
+        >
+          A−
+        </button>
+        <button
+          onClick={() => {
+            setFontSizeManuallyAdjusted(true);
+            setFontSize((f) => Math.min(f + 0.15, MAX_FONT_REM));
+          }}
+          className="flex h-12 items-center justify-center rounded-xl text-base font-semibold opacity-90 active:scale-95"
+          aria-label="Aumentar tamaño de secciones, letra y acordes"
+          title="Aumentar tamaño"
+        >
+          A+
+        </button>
+        <button
+          onClick={() => void toggleFullscreen()}
+          className="flex h-12 items-center justify-center rounded-xl text-2xl opacity-90 active:scale-95"
+          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        >
+          {isFullscreen ? '🗗' : '⛶'}
+        </button>
+        <button
+          onClick={nextPage}
+          disabled={!hasSongs || songIndex === songs.length - 1}
+          className="flex h-12 items-center justify-center rounded-xl text-2xl opacity-90 active:scale-95 disabled:opacity-25"
+          aria-label="Canción siguiente"
+          title="Canción siguiente"
+        >
+          ▶
+        </button>
+      </div>
+
+      {/* En escritorio se conserva la navegación por páginas y canciones. */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 z-20 hidden items-center justify-between gap-3 border-t px-5 py-2 text-sm transition-opacity sm:flex ${
+          controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        } ${dark ? 'border-gray-800 bg-black/90' : 'border-gray-200 bg-white/95'}`}
       >
         <button
           onClick={prevPage}
@@ -703,7 +786,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
         >
           ← Anterior
         </button>
-        <span className="hidden min-w-0 truncate opacity-50 sm:block">
+        <span className="min-w-0 truncate opacity-50">
           ← → página · ↑ ↓ canción · +/− tamaño · T tono · F pantalla completa
         </span>
         <button
