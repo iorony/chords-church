@@ -170,7 +170,7 @@ export default function SongDetailClient({
                 </select>
                 {savingVisibility && <span className="sr-only">Guardando visibilidad</span>}
               </div>
-            ) : isLoggedIn ? (
+            ) : isLoggedIn && status !== 'published' ? (
               <div className="inline-flex min-h-11 items-center justify-between gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700">
                 <span className="text-xs text-gray-500">Visibilidad</span>
                 <span className="font-medium">{visibility === 'public' ? 'Pública' : 'Privada'}</span>

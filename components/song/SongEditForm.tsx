@@ -287,13 +287,12 @@ export default function SongEditForm({
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            rows={20}
-            className="w-full min-h-[520px] border border-gray-300 dark:border-gray-700 bg-gray-950 text-gray-100 rounded-lg px-3 py-3 font-mono text-sm leading-relaxed resize-y"
+            className="w-full h-[560px] border border-gray-300 dark:border-gray-700 bg-gray-950 text-gray-100 rounded-lg px-3 py-3 font-mono text-sm leading-relaxed resize-none overflow-y-auto"
           />
         </div>
         <div className="min-w-0">
           <h2 className="text-sm font-medium mb-2">Vista previa</h2>
-          <div className="min-h-[520px] max-h-[70vh] overflow-auto border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-white/60 dark:bg-black/10">
+          <div className="h-[560px] overflow-y-auto border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-white/60 dark:bg-black/10">
             <ChordChart content={content} fontSizeClass="text-sm" />
           </div>
         </div>
@@ -417,7 +416,15 @@ export default function SongEditForm({
         </>
       )}
 
-      <div className="sticky bottom-0 z-10 flex justify-end border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur py-4">
+      <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur py-4">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          disabled={saving}
+          className="border border-gray-300 dark:border-gray-700 px-6 py-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+        >
+          Cancelar
+        </button>
         <button
           onClick={isOwnerOrModerator ? handleSaveDirect : handleProposal}
           disabled={saving}

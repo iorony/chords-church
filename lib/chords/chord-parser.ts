@@ -145,74 +145,144 @@ export function isChordLine(line: string): boolean {
   return ratio >= 0.75 && (barLine || chordCount >= 1);
 }
 
-const SECTION_ALIASES: Array<{ regex: RegExp; label: string }> = [
-  { regex: /^(?:intro|introducci[oó]n)$/i, label: 'INTRO' },
-  { regex: /^pre[-\s]?coro$/i, label: 'PRE-CORO' },
-  { regex: /^(?:coro|chorus)$/i, label: 'CORO' },
-  { regex: /^post[-\s]?coro$/i, label: 'POST-CORO' },
-  { regex: /^(?:puente|bridge)$/i, label: 'PUENTE' },
-  { regex: /^(?:interludio|interlude)$/i, label: 'INTERLUDIO' },
-  { regex: /^instrumental$/i, label: 'INSTRUMENTAL' },
-  { regex: /^(?:solo|solo\s+(?:de\s+)?(?:guitarra|piano|teclado|bater[ií]a))$/i, label: 'INTERLUDIO' },
-  { regex: /^espont[aá]neo$/i, label: 'ESPONTÁNEO' },
-  { regex: /^coro\s*final$/i, label: 'CORO FINAL' },
-  { regex: /^(?:salida|outro)$/i, label: 'SALIDA' },
-  { regex: /^(?:final|fin|cierre)$/i, label: 'FINAL' }
-];
+const SECTION_BASES = new Set([
+  'INTRO',
+  'ESTROFA',
+  'PRE CORO',
+  'CORO',
+  'POST CORO',
+  'PUENTE',
+  'INTERLUDIO',
+  'INSTRUMENTAL',
+  'SOLO',
+  'ESPONTANEO',
+  'CORO FINAL',
+  'SALIDA',
+  'FINAL',
+  'PARTE'
+]);
+
+const INSTRUMENT_NAMES = '(?:PIANO|PAD|GUITARRA|TECLADO|BATERIA|BAJO|VOCES?|ACUSTICO|ELECTRICO)';
 
 /**
- * Normaliza encabezados equivalentes al formato visible en español.
- * Admite corchetes, dos puntos y numeración arábiga o romana:
- *   [VERSO II] -> ESTROFA II
- *   CORO 2:     -> CORO 2
- *   INTERLUDIO: -> INTERLUDIO
+ * Convierte encabezados pegados desde Word/PDF/sitios web a una forma
+ * comparable. Quita adornos exteriores, unifica guiones/guiones bajos como
+ * espacios, elimina tildes y colapsa espacios.
  */
-export function detectSectionLabel(line: string): string | null {
-  /*
-   * Limpia únicamente adornos que envuelven TODO el encabezado. Así se
-   * reconocen formatos pegados desde Word, PDF o sitios web como:
-   *   -Estrofa-
-   *   -- CORO --
-   *   *Puente 2*
-   *   _Pre-coro_
-   * sin alterar el guion interno legítimo de PRE-CORO o POST-CORO.
-   */
-  const trimmed = line
+export function normalizeSectionCandidate(line: string): string {
+  return line
     .trim()
     .replace(/^\[\s*|\s*\]$/g, '')
     .replace(/^\(\s*|\s*\)$/g, '')
     .replace(/^\{\s*|\s*\}$/g, '')
     .replace(/^[`*_#~=\-\u2010\u2011\u2012\u2013\u2014\u2212\s]+/, '')
     .replace(/[`*_#~=\-\u2010\u2011\u2012\u2013\u2014\u2212:\s]+$/, '')
+    .replace(/[\-\u2010\u2011\u2012\u2013\u2014\u2212_]+/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+/**
+ * Detecta indicaciones de ejecución/repetición que mencionan secciones, pero
+ * que NO deben convertirse en encabezados nuevos.
+ */
+export function isRepeatInstruction(line: string): boolean {
+  const normalized = normalizeSectionCandidate(line)
+    .replace(/[(),.;:]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
-  // Las divisiones genéricas PARTE I, PARTE II, etc. se conservan como
-  // encabezados explícitos. No se convierten automáticamente a ESTROFA,
-  // porque en repertorios de iglesia pueden representar bloques musicales
-  // distintos y no necesariamente versos consecutivos.
-  const partMatch = /^parte(?:\s+([0-9]+|[ivxlcdm]+))?$/i.exec(trimmed);
-  if (partMatch) {
-    const suffix = partMatch[1]?.toUpperCase();
-    return suffix ? `PARTE ${suffix}` : 'PARTE';
+  if (!normalized) return false;
+
+  // Compuestos legítimos que contienen dos palabras de sección, pero sí son
+  // encabezados reales y no instrucciones de repetición.
+  if (/^(?:PRE CORO|POST CORO|CORO FINAL|ESTROFA FINAL|ESTROFA FIN)$/.test(normalized)) return false;
+  if (new RegExp(`^(?:INTRO|INTRODUCCION)(?:\\s+${INSTRUMENT_NAMES})?(?:\\s+(?:[0-9]+|[IVXLCDM]+))?$`).test(normalized)) return false;
+  if (new RegExp(`^SOLO(?:\\s+(?:DE\\s+)?${INSTRUMENT_NAMES})?(?:\\s+(?:[0-9]+|[IVXLCDM]+))?$`).test(normalized)) return false;
+
+  if (/^(?:BIS|X\s*\d+|REPETIR|REPITE|REPETIR TODO)$/.test(normalized)) return true;
+  if (/^(?:REPETIR|REPITE|VUELVE|VUELVES|VOLVER|REGRESA|REGRESAR|IR)\b/.test(normalized)) return true;
+  if (/\b(?:REPETIR|REPITE|VUELVE|VUELVES|VOLVER|REGRESA|REGRESAR)\b/.test(normalized)) return true;
+
+  // Formatos abreviados habituales: -estrofa-coro-, -intro-puente-coro-.
+  // Exige al menos dos nombres para no confundir PRE-CORO con una repetición.
+  const names = normalized.match(/INTRO|ESTROFA|VERSO|VERSE|CORO|PUENTE|BRIDGE|INTERLUDIO|INSTRUMENTAL|FINAL/g) || [];
+  const residue = normalized
+    .replace(/INTRO|ESTROFA|VERSO|VERSE|CORO|PUENTE|BRIDGE|INTERLUDIO|INSTRUMENTAL|FINAL/g, '')
+    .replace(/\b(?:Y|AL|EL|LA|LOS|LAS|DE)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return names.length >= 2 && !residue;
+}
+
+export function normalizeRepeatInstruction(line: string): string {
+  const normalized = normalizeSectionCandidate(line);
+  if (!normalized) return line.trim();
+  if (/^(?:BIS|X\s*\d+)$/.test(normalized)) return `(${normalized})`;
+
+  const sectionNames = normalized.match(/INTRO|ESTROFA|VERSO|VERSE|CORO|PUENTE|BRIDGE|INTERLUDIO|INSTRUMENTAL|FINAL/g) || [];
+  if (sectionNames.length >= 2) {
+    const mapped = sectionNames.map((name) => {
+      if (name === 'VERSO' || name === 'VERSE') return 'ESTROFA';
+      if (name === 'BRIDGE') return 'PUENTE';
+      return name;
+    });
+    return `(REPETIR ${mapped.join(' Y ')})`;
   }
 
-  const numbered = /^(estrofa|verso|verse|intro|introducci[oó]n|pre[-\s]?coro|coro|chorus|post[-\s]?coro|puente|bridge|interludio|interlude|instrumental|solo(?:\s+(?:de\s+)?(?:guitarra|piano|teclado|bater[ií]a))?|espont[aá]neo|salida|outro|final|fin|cierre)(?:\s+([0-9]+|[ivxlcdm]+))?$/i.exec(trimmed);
-  if (numbered) {
-    const rawName = numbered[1];
-    const suffix = numbered[2]?.toUpperCase();
+  return line.trim();
+}
 
-    let base: string | null = null;
-    if (/^(?:estrofa|verso|verse)$/i.test(rawName)) base = 'ESTROFA';
-    else {
-      base = SECTION_ALIASES.find((entry) => entry.regex.test(rawName))?.label || null;
-    }
+/**
+ * Normaliza encabezados equivalentes al formato visible en español.
+ * Soporta encabezados simples, numerados y compuestos:
+ *   INTRO PIANO, SOLO - GUITARRA, ESTROFA FIN, PARTE II, etc.
+ * Las indicaciones de repetición se excluyen expresamente.
+ */
+export function detectSectionLabel(line: string): string | null {
+  if (isRepeatInstruction(line)) return null;
 
-    if (base) return suffix ? `${base} ${suffix}` : base;
+  const normalized = normalizeSectionCandidate(line);
+  if (!normalized) return null;
+
+  const suffixMatch = /\s+([0-9]+|[IVXLCDM]+)$/.exec(normalized);
+  const suffix = suffixMatch?.[1];
+  const withoutSuffix = suffixMatch ? normalized.slice(0, suffixMatch.index).trim() : normalized;
+
+  // Las divisiones PARTE se preservan tal como fueron numeradas.
+  if (/^PARTE$/.test(withoutSuffix)) return suffix ? `PARTE ${suffix}` : 'PARTE';
+
+  // Encabezados que indican explícitamente el cierre de una estrofa/canción.
+  if (/^(?:ESTROFA|VERSO|VERSE)\s+(?:FIN|FINAL)$/.test(normalized)) return 'FINAL';
+
+  // INTRO puede incluir el instrumento o ambiente sin crear una etiqueta nueva.
+  if (new RegExp(`^(?:INTRO|INTRODUCCION)(?:\\s+${INSTRUMENT_NAMES})?$`).test(withoutSuffix)) {
+    return suffix ? `INTRO ${suffix}` : 'INTRO';
   }
 
-  for (const alias of SECTION_ALIASES) {
-    if (alias.regex.test(trimmed)) return alias.label;
+  if (/^(?:ESTROFA|VERSO|VERSE)$/.test(withoutSuffix)) return suffix ? `ESTROFA ${suffix}` : 'ESTROFA';
+  if (/^(?:PRE\s*CORO|PRE\s*CHORUS)$/.test(withoutSuffix)) return suffix ? `PRE-CORO ${suffix}` : 'PRE-CORO';
+  if (/^(?:CORO|CHORUS|ESTRIBILLO)$/.test(withoutSuffix)) return suffix ? `CORO ${suffix}` : 'CORO';
+  if (/^(?:POST\s*CORO|POST\s*CHORUS)$/.test(withoutSuffix)) return suffix ? `POST-CORO ${suffix}` : 'POST-CORO';
+  if (/^(?:PUENTE|BRIDGE)$/.test(withoutSuffix)) return suffix ? `PUENTE ${suffix}` : 'PUENTE';
+  if (/^(?:INTERLUDIO|INTERLUDE)$/.test(withoutSuffix)) return suffix ? `INTERLUDIO ${suffix}` : 'INTERLUDIO';
+  if (/^INSTRUMENTAL(?:\s+.+)?$/.test(withoutSuffix)) return suffix ? `INSTRUMENTAL ${suffix}` : 'INSTRUMENTAL';
+
+  const soloMatch = new RegExp(`^SOLO(?:\\s+(?:DE\\s+)?(${INSTRUMENT_NAMES.slice(3, -1)}))?$`).exec(withoutSuffix);
+  if (soloMatch) {
+    const instrument = soloMatch[1]?.replace(/^DE\s+/, '').trim();
+    const base = instrument ? `SOLO ${instrument}` : 'SOLO';
+    return suffix ? `${base} ${suffix}` : base;
   }
+
+  if (/^ESPONTANEO$/.test(withoutSuffix)) return suffix ? `ESPONTÁNEO ${suffix}` : 'ESPONTÁNEO';
+  if (/^CORO\s+FINAL$/.test(withoutSuffix)) return suffix ? `CORO FINAL ${suffix}` : 'CORO FINAL';
+  if (/^(?:SALIDA|OUTRO)$/.test(withoutSuffix)) return suffix ? `SALIDA ${suffix}` : 'SALIDA';
+  if (/^(?:FINAL|FIN|CIERRE)$/.test(withoutSuffix)) return suffix ? `FINAL ${suffix}` : 'FINAL';
+
   return null;
 }
 

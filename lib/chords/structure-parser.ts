@@ -1,5 +1,5 @@
 import { ParsedLine, SongSection, SectionType } from './types';
-import { isChordLine, detectSectionLabel } from './chord-parser';
+import { isChordLine, detectSectionLabel, isRepeatInstruction, normalizeRepeatInstruction } from './chord-parser';
 
 const LABEL_TO_TYPE: Record<string, SectionType> = {
   INTRO: 'INTRO',
@@ -56,11 +56,19 @@ export function classifyLines(content: string): ParsedLine[] {
   const rawLines = content.split('\n');
   const result: ParsedLine[] = [];
 
-  for (const raw of rawLines) {
+  for (let index = 0; index < rawLines.length; index += 1) {
+    const raw = rawLines[index];
     const trimmed = raw.trim();
 
     if (!trimmed) {
       result.push({ kind: 'blank', raw });
+      continue;
+    }
+
+    // Indicaciones como -estrofa-coro-, volver al puente o BIS son texto de
+    // ejecución. Se conservan, pero nunca abren una sección nueva.
+    if (isRepeatInstruction(trimmed)) {
+      result.push({ kind: 'lyric-line', raw: normalizeRepeatInstruction(trimmed) });
       continue;
     }
 
@@ -87,6 +95,20 @@ export function classifyLines(content: string): ParsedLine[] {
 
     const label = detectSectionLabel(trimmed);
     if (label) {
+      const nextTrimmed = rawLines[index + 1]?.trim() || '';
+      const decorated = /^[`*_#~=\-\u2010-\u2014\u2212].*[`*_#~=\-\u2010-\u2014\u2212]$/.test(trimmed);
+
+      // Caso habitual de repertorios: -intro- seguido de -estrofa-coro-.
+      // Ambos forman una indicación de repetición, no un INTRO nuevo.
+      if (decorated && nextTrimmed && isRepeatInstruction(nextTrimmed)) {
+        result.push({
+          kind: 'lyric-line',
+          raw: normalizeRepeatInstruction(`${trimmed} ${nextTrimmed}`)
+        });
+        index += 1;
+        continue;
+      }
+
       result.push({ kind: 'section-header', raw, sectionLabel: label });
       continue;
     }
@@ -130,7 +152,10 @@ export function buildSections(content: string): SongSection[] {
       resolvedLabel = `ESTROFA ${verseCounter}`;
     }
     const baseLabel = resolvedLabel.replace(/\s+(?:\d+|[IVXLCDM]+)$/i, '').trim().toUpperCase();
-    const type = LABEL_TO_TYPE[baseLabel] || (baseLabel.startsWith('ESTROFA') ? 'VERSE' : 'UNKNOWN');
+    const type = LABEL_TO_TYPE[baseLabel]
+      || (baseLabel.startsWith('ESTROFA') ? 'VERSE'
+        : baseLabel.startsWith('SOLO') ? 'SOLO'
+          : 'UNKNOWN');
 
     sections.push({
       type,

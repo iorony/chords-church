@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildSections } from '../lib/chords/structure-parser';
 
 describe('buildSections: contenido antes del primer encabezado', () => {

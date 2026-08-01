@@ -53,6 +53,9 @@ Tu tarea es de ENRIQUECIMIENTO, no de reescritura:
 - Un bloque inicial compuesto solo por una progresión de acordes es INTRO.
 - Un bloque con letra antes del primer CORO, PRE-CORO o PUENTE es ESTROFA.
 - Encabezados como CORO:, PUENTE: o -intro- siempre abren una nueva sección y nunca deben quedar dentro del contenido anterior.
+- Reconoce encabezados compuestos: INTRO PIANO/PAD/GUITARRA como INTRO; SOLO GUITARRA/PIANO como SOLO; ESTROFA FIN como FINAL.
+- Líneas de ejecución como -estrofa-coro-, volver al coro, repetir puente, BIS o X2 son indicaciones, no secciones nuevas.
+- Si -intro- aparece seguido inmediatamente por -estrofa-coro- u otra lista de secciones, interpreta el conjunto como una indicación de repetición y no como un INTRO nuevo.
 - Si aparecen PARTE I, PARTE II, PARTE III, etc., conserva esas etiquetas como PARTE. No las conviertas a ESTROFA salvo que el servidor ya las haya clasificado explícitamente así.
 - No inventes bloques, no elimines bloques y no unas dos secciones.
 - Puedes sugerir título, artista, tono, modulación, advertencias y correcciones.

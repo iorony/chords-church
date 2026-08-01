@@ -26,8 +26,7 @@ const NAV_LINKS = [
   { href: '/artistas', label: 'Artistas' },
   { href: '/listas', label: 'Mis listas' },
   { href: '/favoritos', label: 'Favoritos' },
-  { href: '/canciones/nueva', label: 'Agregar canción' },
-  { href: '/aviso-legal', label: 'Información legal' }
+  { href: '/canciones/nueva', label: 'Agregar canción' }
 ];
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

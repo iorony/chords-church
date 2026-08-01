@@ -11,7 +11,7 @@ describe('encabezados PARTE e intro/final en texto plano', () => {
 
   it('normaliza variantes musicales comunes', () => {
     expect(detectSectionLabel('INTRODUCCIÓN')).toBe('INTRO');
-    expect(detectSectionLabel('SOLO DE GUITARRA')).toBe('INTERLUDIO');
+    expect(detectSectionLabel('SOLO DE GUITARRA')).toBe('SOLO GUITARRA');
     expect(detectSectionLabel('CIERRE')).toBe('FINAL');
   });
 

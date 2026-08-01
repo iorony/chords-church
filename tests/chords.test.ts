@@ -352,7 +352,7 @@ Queremos más`;
       'ESTROFA 1',
       'PRE-CORO',
       'CORO 1',
-      'INTRO',
+      'INTRO 2',
       'INTERLUDIO 2',
       'PUENTE 2'
     ]);
