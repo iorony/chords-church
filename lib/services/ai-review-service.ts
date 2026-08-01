@@ -28,7 +28,7 @@ const PROVIDER_API_KEYS: Record<string, string> = {
 };
 
 function getProviderOrder(): string[] {
-  const configured = process.env.AI_PROVIDER_ORDER || process.env.AI_PROVIDER || 'groq,openrouter,gemini';
+  const configured = process.env.AI_PROVIDER_ORDER || process.env.AI_PROVIDER || 'groq,openrouter';
   const names = configured
     .split(',')
     .map((name) => name.trim().toLowerCase())
@@ -255,6 +255,27 @@ function removeDuplicateSections<T extends { type: string; label: string; order:
   });
 }
 
+function buildAiBlockInput(localSections: ReturnType<typeof buildSections>): string {
+  return localSections
+    .map((section, index) => {
+      const id = `BLOCK_${index + 1}`;
+      return `<<<${id}>>>\nEtiqueta local: ${section.label}\n${section.content}\n<<<END_${id}>>>`;
+    })
+    .join('\n\n');
+}
+
+function readBlockNumber(content: string): number | null {
+  const match = /\bBLOCK_(\d+)\b/i.exec(content || '');
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+/**
+ * Mezcla el enriquecimiento semántico de la IA con la estructura local.
+ * El contenido de la IA nunca se usa como fuente de verdad: cada sección
+ * conserva exactamente las líneas producidas por el parser local.
+ */
 function normalizeAiResult(
   result: AiReviewResponse,
   originalContent: string,
@@ -262,52 +283,53 @@ function normalizeAiResult(
   localKeyLabel: string,
   localKeyConfidence: number
 ): AiReviewResponse {
-  let sections = result.sections.map((section) => ({
-    ...section,
-    label: normalizeVisibleSectionLabel(section.label, section.type),
-    content: stripLeadingSectionHeaders(section.content)
-  }));
+  const explicitSections = hasExplicitSectionLabels(originalContent);
+  const aiByBlock = new Map<number, AiReviewResponse['sections'][number]>();
 
-  if (hasExplicitSectionLabels(originalContent)) {
-    if (sections.length === localSections.length) {
-      sections = sections.map((section, index) => ({
-        ...section,
-        type: localSections[index].type,
-        label: localSections[index].label,
-        order: localSections[index].order
-      }));
-    } else {
-      // Evita que una IA invente o duplique secciones cuando el usuario ya las definió.
-      sections = localSections.map((section) => ({
-        type: section.type,
-        label: section.label,
-        order: section.order,
-        content: section.content
-      }));
+  result.sections.forEach((section, index) => {
+    const blockNumber = readBlockNumber(section.content) ?? index + 1;
+    if (!aiByBlock.has(blockNumber)) aiByBlock.set(blockNumber, section);
+  });
+
+  let sections = localSections.map((localSection, index) => {
+    const aiSection = aiByBlock.get(index + 1);
+
+    if (explicitSections || !aiSection) {
+      return {
+        type: localSection.type,
+        label: normalizeVisibleSectionLabel(localSection.label, localSection.type),
+        order: index,
+        content: localSection.content
+      };
     }
-  }
 
-  // En el cancionero se guarda cada sección repetida una sola vez. Esto evita
-  // que la IA replique el mismo CORO, PRE-CORO o ESTROFA varias veces.
+    return {
+      type: aiSection.type,
+      label: normalizeVisibleSectionLabel(aiSection.label, aiSection.type),
+      order: index,
+      content: localSection.content
+    };
+  });
+
+  // La IA puede clasificar mal un bloque, pero nunca puede crear una sección
+  // vacía ni perder contenido. La deduplicación se aplica sobre el contenido
+  // local exacto.
   sections = removeDuplicateSections(sections);
 
-  const originalHasSections = hasExplicitSectionLabels(originalContent);
   const warnings = result.warnings.filter((warning) => {
-    if (originalHasSections) return true;
+    if (explicitSections) return true;
     return !/(faltan?|ausencia de|no (?:hay|tiene|contiene)).{0,30}(?:etiquetas?|secciones?)/i.test(warning);
   });
-  let detectedKey = result.detectedKey;
-  let keyConfidence = result.keyConfidence;
 
-  // La heurística armónica local ahora considera calidad de acordes y cadencias.
-  // Cuando su evidencia es alta, evita resultados de IA incompatibles como G para
-  // una progresión diatónica clara de D mayor (G, A, Bm, D, F#sus...).
-  if (localKeyConfidence >= 0.68 && result.detectedKey !== localKeyLabel) {
+  let detectedKey = result.detectedKey || localKeyLabel;
+  let keyConfidence = result.keyConfidence || localKeyConfidence;
+
+  if (localKeyConfidence >= 0.68 && detectedKey !== localKeyLabel) {
     warnings.push(
-      `El análisis armónico local identifica ${localKeyLabel} con mayor coherencia funcional; se usó ese tono en lugar de ${result.detectedKey}.`
+      `El análisis armónico local identifica ${localKeyLabel} con mayor coherencia funcional; se usó ese tono en lugar de ${detectedKey}.`
     );
     detectedKey = localKeyLabel;
-    keyConfidence = Math.max(localKeyConfidence, result.keyConfidence * 0.85);
+    keyConfidence = Math.max(localKeyConfidence, keyConfidence * 0.85);
   }
 
   return {
@@ -378,7 +400,7 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
   const aiInput: AiReviewInput = {
     title: input.title,
     artist: input.artist,
-    content: input.content,
+    content: buildAiBlockInput(localSections),
     localHints: {
       detectedKey: formatKeyLabel(localKey),
       keyConfidence: localKey.confidence,
@@ -388,6 +410,7 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
       sectionLabels: hasExplicitSectionLabels(input.content)
         ? localSections.map((section) => section.label)
         : [],
+      blockCount: localSections.length,
       chordSummary: buildChordSummary(input.content)
     }
   };
@@ -398,7 +421,6 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
   for (const provider of providers) {
     try {
       const rawResult = await executeWithRetry(provider, aiInput);
-      assertContentCoverage(input.content, rawResult.sections);
       const result = normalizeAiResult(
         rawResult,
         input.content,

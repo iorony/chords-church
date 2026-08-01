@@ -13,6 +13,8 @@ export interface AiReviewInput {
     hasExplicitSections: boolean;
     /** Solo etiquetas y orden. Nunca vuelve a incluir la letra completa. */
     sectionLabels: string[];
+    /** Bloques locales numerados. La IA solo clasifica cada bloque. */
+    blockCount: number;
     /** Resumen compacto de los acordes/progresiones detectados. */
     chordSummary: string;
   };
@@ -31,21 +33,26 @@ export class AiProviderError extends Error {
 }
 
 /**
- * Prompt compacto. La aplicación ya hace detección local, normalización,
- * deduplicación y validación después de la respuesta. La IA se concentra en
- * resolver estructura semántica y ambigüedades armónicas.
+ * Prompt compacto para un flujo local-first.
+ *
+ * La aplicación ya separó la canción en bloques y conserva el contenido
+ * original. La IA NO reconstruye la letra: únicamente clasifica cada bloque,
+ * revisa el tono y devuelve referencias BLOCK_n. Después, el servidor vuelve
+ * a insertar el contenido local exacto.
  */
 export const SYSTEM_PROMPT = `Eres experto en estructura de canciones y armonía.
 Devuelve únicamente JSON válido con el esquema solicitado.
 
-Reglas:
-- Conserva literalmente cada línea de letra, acordes, espacios, //, barras y guiones.
-- No inventes ni omitas contenido.
-- Si ya hay secciones, conserva su orden; normaliza VERSO/VERSE a ESTROFA y quita adornos como -Coro-.
-- Si no hay secciones, infiere INTRO, ESTROFA, PRE-CORO, CORO, PUENTE, INTERLUDIO, SOLO o FINAL por función musical y lírica.
-- No repitas ESTROFA, PRE-CORO o CORO cuando el contenido sea idéntico.
-- Registra cualquier corrección real en corrections.
-- Warnings solo para ambigüedad real o contenido cortado.
+Tu tarea es de ENRIQUECIMIENTO, no de reescritura:
+- Recibirás bloques delimitados como <<<BLOCK_1>>> ... <<<END_BLOCK_1>>>.
+- Devuelve exactamente un objeto de sections por cada bloque y en el mismo orden.
+- En content escribe únicamente el identificador BLOCK_1, BLOCK_2, etc.; nunca copies la letra.
+- Clasifica cada bloque como INTRO, VERSE, PRECHORUS, CHORUS, POSTCHORUS, BRIDGE, INTERLUDE, INSTRUMENTAL, SOLO, SPONTANEOUS, FINAL_CHORUS, OUTRO, END o UNKNOWN.
+- Usa ESTROFA para VERSE, PRE-CORO para PRECHORUS, CORO para CHORUS, PUENTE para BRIDGE e INTERLUDIO para INTERLUDE.
+- Si una etiqueta explícita ya existe, respétala y solo normalízala.
+- No inventes bloques, no elimines bloques y no unas dos secciones.
+- Puedes sugerir título, artista, tono, modulación, advertencias y correcciones.
+- No repitas ESTROFA, PRE-CORO o CORO cuando sean bloques idénticos; el servidor hará la deduplicación final.
 
 Esquema:
 {"detectedTitle":string|null,"detectedArtist":string|null,"detectedKey":string,"keyConfidence":number,"hasModulation":boolean,"warnings":string[],"corrections":[{"original":string,"corrected":string,"reason":string}],"sections":[{"type":"INTRO|VERSE|PRECHORUS|CHORUS|POSTCHORUS|BRIDGE|INTERLUDE|INSTRUMENTAL|SOLO|SPONTANEOUS|FINAL_CHORUS|OUTRO|END|UNKNOWN","label":string,"order":number,"content":string}]}`;
@@ -53,7 +60,7 @@ Esquema:
 export function buildUserPrompt(input: AiReviewInput): string {
   const structureRule = input.localHints.hasExplicitSections
     ? `La canción ya trae secciones. Conserva este orden: ${input.localHints.sectionLabels.join(' > ') || 'detectado localmente'}.`
-    : 'La canción no trae secciones. Créelas por función musical; no etiquetes cada párrafo automáticamente como una estrofa distinta.';
+    : `La canción no trae secciones explícitas. Clasifica semánticamente los ${input.localHints.blockCount} bloques locales sin alterar su cantidad.`;
 
   return `Título obligatorio: ${input.title || '(vacío)'}
 Artista obligatorio: ${input.artist || '(vacío)'}
@@ -61,8 +68,6 @@ Preanálisis local: tono ${input.localHints.detectedKey} (${input.localHints.key
 Acordes detectados: ${input.localHints.chordSummary || 'sin resumen'}.
 ${structureRule}
 
-Canción (aparece una sola vez):
-<<<
-${input.content}
->>>`;
+Bloques locales (la canción aparece una sola vez):
+${input.content}`;
 }
