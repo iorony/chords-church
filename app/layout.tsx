@@ -23,7 +23,6 @@ export const metadata: Metadata = {
 
 const NAV_LINKS = [
   { href: '/canciones', label: 'Canciones' },
-  { href: '/artistas', label: 'Artistas' },
   { href: '/listas', label: 'Mis listas' },
   { href: '/favoritos', label: 'Favoritos' },
   { href: '/canciones/nueva', label: 'Agregar canción' }
