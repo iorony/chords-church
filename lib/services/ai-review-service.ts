@@ -9,7 +9,7 @@ import { openrouterProvider } from '../ai/providers/openrouter';
 import { groqProvider } from '../ai/providers/groq';
 import { detectKey, detectModulation, formatKeyLabel, detectKeyWithAlternate, detectAlternateKeyForPrimary } from '../chords/key-detection';
 import { buildSections } from '../chords/structure-parser';
-import { detectSectionLabel } from '../chords/chord-parser';
+import { detectSectionLabel, tokenizeChordLine, stripChordWrapper } from '../chords/chord-parser';
 
 const PROVIDERS: Record<string, AiProvider> = {
   groq: groqProvider,
@@ -79,15 +79,64 @@ async function executeWithRetry(
       return await provider.review(input);
     } catch (err) {
       lastError = err;
-      if (attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
-      }
+      const message = errorMessage(err);
+      // 413 no mejora repitiendo la misma carga; 400/401/403 tampoco.
+      const nonRetryable = /\((?:400|401|403|413)\)/.test(message);
+      if (nonRetryable || attempt >= retries) break;
+      await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
     }
   }
 
   throw lastError instanceof Error
     ? lastError
     : new AiProviderError('El proveedor de IA falló sin devolver detalles.');
+}
+
+function buildChordSummary(content: string): string {
+  const chords: string[] = [];
+  for (const line of content.split('\n')) {
+    for (const token of tokenizeChordLine(line)) {
+      if (token.kind !== 'chord') continue;
+      const core = stripChordWrapper(token.value).core;
+      if (core && !chords.includes(core)) chords.push(core);
+      if (chords.length >= 32) break;
+    }
+    if (chords.length >= 32) break;
+  }
+  return chords.join(' ');
+}
+
+function comparableSongLines(content: string): string[] {
+  return content
+    .split('\n')
+    .filter((line) => !isRecognizedSectionHeader(line))
+    .map((line) => line.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+/** Asegura que la IA no haya perdido ni inventado líneas sustanciales. */
+function assertContentCoverage(original: string, sections: AiReviewResponse['sections']): void {
+  const expected = comparableSongLines(original);
+  const actual = comparableSongLines(sections.map((section) => section.content).join('\n'));
+  const remaining = [...actual];
+  let matched = 0;
+
+  for (const line of expected) {
+    const index = remaining.indexOf(line);
+    if (index >= 0) {
+      matched += 1;
+      remaining.splice(index, 1);
+    }
+  }
+
+  const coverage = expected.length ? matched / expected.length : 1;
+  // Permite diferencias pequeñas causadas por correcciones explícitas, pero no
+  // una respuesta truncada o una reescritura completa.
+  if (coverage < 0.92) {
+    throw new AiProviderError(
+      `La IA devolvió una estructura incompleta (${Math.round(coverage * 100)}% del contenido conservado).`
+    );
+  }
 }
 
 
@@ -333,11 +382,13 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
     localHints: {
       detectedKey: formatKeyLabel(localKey),
       keyConfidence: localKey.confidence,
+      alternateKey: alternateKey ? formatKeyLabel(alternateKey) : null,
       hasModulation: localModulation,
       hasExplicitSections: hasExplicitSectionLabels(input.content),
-      preStructuredSections: hasExplicitSectionLabels(input.content)
-        ? localSections.map((s) => ({ label: s.label, content: s.content }))
-        : []
+      sectionLabels: hasExplicitSectionLabels(input.content)
+        ? localSections.map((section) => section.label)
+        : [],
+      chordSummary: buildChordSummary(input.content)
     }
   };
 
@@ -347,6 +398,7 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
   for (const provider of providers) {
     try {
       const rawResult = await executeWithRetry(provider, aiInput);
+      assertContentCoverage(input.content, rawResult.sections);
       const result = normalizeAiResult(
         rawResult,
         input.content,
@@ -366,7 +418,7 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
     } catch (err) {
       const message = errorMessage(err);
       failures.push(`${provider.name}: ${message}`);
-      console.error(`[AI] Falló ${provider.name}; se probará el siguiente proveedor.`, err);
+      console.warn(`[AI] ${provider.name} no disponible; se probará el siguiente proveedor: ${message}`);
     }
   }
 

@@ -36,7 +36,8 @@ export const groqProvider: AiProvider = {
         body: JSON.stringify({
           model,
           temperature: 0.1,
-          max_completion_tokens: 8000,
+          reasoning_effort: 'low',
+          max_completion_tokens: 2200,
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },

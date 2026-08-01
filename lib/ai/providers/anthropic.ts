@@ -25,7 +25,7 @@ export const anthropicProvider: AiProvider = {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 8000,
+        max_tokens: 2600,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: buildUserPrompt(input) }]
       })
@@ -97,12 +97,7 @@ export function parseAiJson(raw: string, input?: AiReviewInput): AiReviewRespons
     parsedJson = parsedJson.result ?? parsedJson.data ?? parsedJson;
   }
 
-  const fallbackSections = input?.localHints.preStructuredSections.map((section, index) => ({
-    type: normalizeSectionType(section.label, section.label),
-    label: section.label.replace(/[\[\]]/g, '').trim() || 'UNKNOWN',
-    order: index,
-    content: section.content || ''
-  })) ?? [];
+  const fallbackSections: AiReviewResponse['sections'] = [];
 
   const rawSections = Array.isArray(parsedJson?.sections)
     ? parsedJson.sections

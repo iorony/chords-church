@@ -381,3 +381,13 @@ Cuando el texto original no contiene encabezados, la IA recibe una instrucción 
 
 ## Prevención de canciones duplicadas
 Antes de crear o editar una canción, el sistema comprueba coincidencias por título + artista normalizados y por alta similitud del contenido. Si encuentra una copia, bloquea el guardado y dirige al usuario a trabajar sobre la canción existente.
+
+## Pipeline híbrido de análisis de canciones
+
+El análisis usa tres fases:
+
+1. **Preanálisis local:** detecta tono, tono alternativo, modulación, acordes y encabezados sin consumir API.
+2. **IA focalizada:** recibe la canción una sola vez y se concentra en estructura semántica y ambigüedades. Los prompts ya no duplican la letra ni las secciones locales.
+3. **Validación local:** normaliza etiquetas, elimina secciones idénticas, valida el tono y comprueba que la IA haya conservado al menos el 92 % de las líneas. Una respuesta incompleta activa el siguiente proveedor.
+
+Para evitar límites gratuitos de tokens, Groq usa salida máxima de 2200 tokens, razonamiento bajo y los errores 413 pasan directamente al siguiente proveedor sin reintento.
