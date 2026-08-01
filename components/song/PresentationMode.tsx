@@ -252,6 +252,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
   const [showKeyPicker, setShowKeyPicker] = useState(false);
   const [semitoneOverride, setSemitoneOverride] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewport, setViewport] = useState({ width: 1280, height: 720 });
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openPreviousSongAtLastPage = useRef(false);
@@ -313,6 +314,19 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     return trimmed.length ? trimmed : [[]];
   }, [currentPage]);
 
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen?.();
+      } else {
+        await document.documentElement.requestFullscreen?.();
+      }
+    } catch (error) {
+      console.warn('[Presentación] No se pudo cambiar el modo de pantalla completa.', error);
+    }
+  }, []);
+
   const nextSong = useCallback(() => {
     setSongIndex((i) => Math.min(i + 1, songs.length - 1));
     setPageIndex(0);
@@ -371,6 +385,18 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     updateViewport();
     window.addEventListener('resize', updateViewport);
     return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    handleFullscreenChange();
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -439,7 +465,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
           break;
         case 'f':
         case 'F':
-          document.documentElement.requestFullscreen?.().catch(() => {});
+          void toggleFullscreen();
           break;
         case 'Escape':
           if (document.fullscreenElement) {
@@ -452,7 +478,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [nextPage, prevPage, nextSong, prevSong, router]);
+  }, [nextPage, prevPage, nextSong, prevSong, router, toggleFullscreen]);
 
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
@@ -546,6 +572,14 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
           </button>
           <button onClick={() => { setFontSizeManuallyAdjusted(true); setFontSize((f) => Math.min(f + 0.15, MAX_FONT_REM)); }} aria-label="Aumentar texto">
             A+
+          </button>
+          <button
+            onClick={() => void toggleFullscreen()}
+            className="opacity-70 hover:opacity-100"
+            aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          >
+            {isFullscreen ? '🗗' : '⛶'}<span className="hidden sm:inline"> F</span>
           </button>
           <button onClick={() => setDark((d) => !d)} className="opacity-70 hover:opacity-100">
             {dark ? '☀' : '🌙'}
