@@ -8,7 +8,8 @@ import { geminiProvider } from '../ai/providers/gemini';
 import { openrouterProvider } from '../ai/providers/openrouter';
 import { groqProvider } from '../ai/providers/groq';
 import { detectKey, detectModulation, formatKeyLabel, detectKeyWithAlternate, detectAlternateKeyForPrimary } from '../chords/key-detection';
-import { buildSections } from '../chords/structure-parser';
+import { parseSongBlocks, rebuildSectionsFromBlocks, SongBlock } from '../chords/block-parser';
+import { SectionType } from '../chords/types';
 import { detectSectionLabel, tokenizeChordLine, stripChordWrapper } from '../chords/chord-parser';
 
 const PROVIDERS: Record<string, AiProvider> = {
@@ -255,11 +256,11 @@ function removeDuplicateSections<T extends { type: string; label: string; order:
   });
 }
 
-function buildAiBlockInput(localSections: ReturnType<typeof buildSections>): string {
-  return localSections
-    .map((section, index) => {
-      const id = `BLOCK_${index + 1}`;
-      return `<<<${id}>>>\nEtiqueta local: ${section.label}\n${section.content}\n<<<END_${id}>>>`;
+function buildAiBlockInput(blocks: SongBlock[]): string {
+  return blocks
+    .map((block) => {
+      const id = `BLOCK_${block.id}`;
+      return `<<<${id}>>>\n${block.content}\n<<<END_${id}>>>`;
     })
     .join('\n\n');
 }
@@ -271,6 +272,13 @@ function readBlockNumber(content: string): number | null {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
+function classificationFromAiSection(section: AiReviewResponse['sections'][number]): { type: SectionType; label: string } {
+  return {
+    type: section.type as SectionType,
+    label: normalizeVisibleSectionLabel(section.label, section.type)
+  };
+}
+
 /**
  * Mezcla el enriquecimiento semántico de la IA con la estructura local.
  * El contenido de la IA nunca se usa como fuente de verdad: cada sección
@@ -279,43 +287,36 @@ function readBlockNumber(content: string): number | null {
 function normalizeAiResult(
   result: AiReviewResponse,
   originalContent: string,
-  localSections: ReturnType<typeof buildSections>,
+  blocks: SongBlock[],
+  unresolvedBlocks: SongBlock[],
   localKeyLabel: string,
   localKeyConfidence: number
 ): AiReviewResponse {
-  const explicitSections = hasExplicitSectionLabels(originalContent);
-  const aiByBlock = new Map<number, AiReviewResponse['sections'][number]>();
+  const classifications = new Map<number, { type: SectionType; label: string }>();
 
   result.sections.forEach((section, index) => {
-    const blockNumber = readBlockNumber(section.content) ?? index + 1;
-    if (!aiByBlock.has(blockNumber)) aiByBlock.set(blockNumber, section);
-  });
-
-  let sections = localSections.map((localSection, index) => {
-    const aiSection = aiByBlock.get(index + 1);
-
-    if (explicitSections || !aiSection) {
-      return {
-        type: localSection.type,
-        label: normalizeVisibleSectionLabel(localSection.label, localSection.type),
-        order: index,
-        content: localSection.content
-      };
+    const fallbackBlock = unresolvedBlocks[index];
+    const blockNumber = readBlockNumber(section.content) ?? fallbackBlock?.id ?? null;
+    if (blockNumber && !classifications.has(blockNumber)) {
+      classifications.set(blockNumber, classificationFromAiSection(section));
     }
-
-    return {
-      type: aiSection.type,
-      label: normalizeVisibleSectionLabel(aiSection.label, aiSection.type),
-      order: index,
-      content: localSection.content
-    };
   });
 
-  // La IA puede clasificar mal un bloque, pero nunca puede crear una sección
-  // vacía ni perder contenido. La deduplicación se aplica sobre el contenido
-  // local exacto.
+  // La IA debe responder una clasificación por cada bloque enviado. Si omite
+  // alguno, el resultado no es confiable y se prueba el siguiente proveedor.
+  const missing = unresolvedBlocks.filter((block) => !classifications.has(block.id));
+  if (missing.length) {
+    throw new AiProviderError(`La IA omitió ${missing.length} bloque(s) semánticos.`);
+  }
+
+  let sections = rebuildSectionsFromBlocks(blocks, classifications).map((section, index) => ({
+    ...section,
+    label: normalizeVisibleSectionLabel(section.label, section.type),
+    order: index
+  }));
   sections = removeDuplicateSections(sections);
 
+  const explicitSections = hasExplicitSectionLabels(originalContent);
   const warnings = result.warnings.filter((warning) => {
     if (explicitSections) return true;
     return !/(faltan?|ausencia de|no (?:hay|tiene|contiene)).{0,30}(?:etiquetas?|secciones?)/i.test(warning);
@@ -323,11 +324,8 @@ function normalizeAiResult(
 
   let detectedKey = result.detectedKey || localKeyLabel;
   let keyConfidence = result.keyConfidence || localKeyConfidence;
-
   if (localKeyConfidence >= 0.68 && detectedKey !== localKeyLabel) {
-    warnings.push(
-      `El análisis armónico local identifica ${localKeyLabel} con mayor coherencia funcional; se usó ese tono en lugar de ${detectedKey}.`
-    );
+    warnings.push(`El análisis armónico local identifica ${localKeyLabel} con mayor coherencia funcional; se usó ese tono en lugar de ${detectedKey}.`);
     detectedKey = localKeyLabel;
     keyConfidence = Math.max(localKeyConfidence, keyConfidence * 0.85);
   }
@@ -349,7 +347,7 @@ export function reviewSongLocally(input: ReviewSongInput): {
 } {
   const localKey = detectKey(input.content);
   const localModulation = detectModulation(input.content);
-  const localSections = buildSections(input.content);
+  const localSections = rebuildSectionsFromBlocks(parseSongBlocks(input.content), new Map());
   const { alternate: alternateKey } = detectKeyWithAlternate(input.content);
 
   return {
@@ -394,13 +392,22 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
 }> {
   const localKey = detectKey(input.content);
   const localModulation = detectModulation(input.content);
-  const localSections = buildSections(input.content);
+  const blocks = parseSongBlocks(input.content);
+  const unresolvedBlocks = blocks.filter((block) => !block.explicitLabel);
+  const localSections = rebuildSectionsFromBlocks(blocks, new Map());
   const { alternate: alternateKey } = detectKeyWithAlternate(input.content);
+
+  // Las secciones explícitas están resueltas de forma determinista. Si no hay
+  // bloques pendientes, la IA no tiene nada que clasificar.
+  if (unresolvedBlocks.length === 0) {
+    const local = reviewSongLocally(input);
+    return { ...local, providerName: 'local (secciones explícitas)' };
+  }
 
   const aiInput: AiReviewInput = {
     title: input.title,
     artist: input.artist,
-    content: buildAiBlockInput(localSections),
+    content: buildAiBlockInput(unresolvedBlocks),
     localHints: {
       detectedKey: formatKeyLabel(localKey),
       keyConfidence: localKey.confidence,
@@ -410,7 +417,7 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
       sectionLabels: hasExplicitSectionLabels(input.content)
         ? localSections.map((section) => section.label)
         : [],
-      blockCount: localSections.length,
+      blockCount: unresolvedBlocks.length,
       chordSummary: buildChordSummary(input.content)
     }
   };
@@ -424,7 +431,8 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
       const result = normalizeAiResult(
         rawResult,
         input.content,
-        localSections,
+        blocks,
+        unresolvedBlocks,
         formatKeyLabel(localKey),
         localKey.confidence
       );

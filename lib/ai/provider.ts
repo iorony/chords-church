@@ -13,7 +13,7 @@ export interface AiReviewInput {
     hasExplicitSections: boolean;
     /** Solo etiquetas y orden. Nunca vuelve a incluir la letra completa. */
     sectionLabels: string[];
-    /** Bloques locales numerados. La IA solo clasifica cada bloque. */
+    /** Solo bloques sin etiqueta explícita. La IA clasifica estos ids y nada más. */
     blockCount: number;
     /** Resumen compacto de los acordes/progresiones detectados. */
     chordSummary: string;
@@ -45,11 +45,11 @@ Devuelve únicamente JSON válido con el esquema solicitado.
 
 Tu tarea es de ENRIQUECIMIENTO, no de reescritura:
 - Recibirás bloques delimitados como <<<BLOCK_1>>> ... <<<END_BLOCK_1>>>.
-- Devuelve exactamente un objeto de sections por cada bloque y en el mismo orden.
+- Devuelve exactamente un objeto de sections por cada bloque recibido y en el mismo orden.
 - En content escribe únicamente el identificador BLOCK_1, BLOCK_2, etc.; nunca copies la letra.
 - Clasifica cada bloque como INTRO, VERSE, PRECHORUS, CHORUS, POSTCHORUS, BRIDGE, INTERLUDE, INSTRUMENTAL, SOLO, SPONTANEOUS, FINAL_CHORUS, OUTRO, END o UNKNOWN.
 - Usa ESTROFA para VERSE, PRE-CORO para PRECHORUS, CORO para CHORUS, PUENTE para BRIDGE e INTERLUDIO para INTERLUDE.
-- Si una etiqueta explícita ya existe, respétala y solo normalízala.
+- Los bloques con etiqueta explícita no se envían: ya están bloqueados por el servidor.
 - Un bloque inicial compuesto solo por una progresión de acordes es INTRO.
 - Un bloque con letra antes del primer CORO, PRE-CORO o PUENTE es ESTROFA.
 - Encabezados como CORO:, PUENTE: o -intro- siempre abren una nueva sección y nunca deben quedar dentro del contenido anterior.
@@ -58,7 +58,7 @@ Tu tarea es de ENRIQUECIMIENTO, no de reescritura:
 - Líneas de ejecución como -estrofa-coro-, volver al coro, repetir puente, BIS o X2 son indicaciones, no secciones nuevas.
 - Si -intro- aparece seguido inmediatamente por -estrofa-coro- u otra lista de secciones, interpreta el conjunto como una indicación de repetición y no como un INTRO nuevo.
 - Si aparecen PARTE I, PARTE II, PARTE III, etc., conserva esas etiquetas como PARTE. No las conviertas a ESTROFA salvo que el servidor ya las haya clasificado explícitamente así.
-- No inventes bloques, no elimines bloques y no unas dos secciones.
+- No inventes bloques, no elimines bloques, no dividas bloques y no unas dos secciones.
 - Puedes sugerir título, artista, tono, modulación, advertencias y correcciones.
 - No repitas ESTROFA, PRE-CORO o CORO cuando sean bloques idénticos; el servidor hará la deduplicación final.
 
@@ -66,9 +66,7 @@ Esquema:
 {"detectedTitle":string|null,"detectedArtist":string|null,"detectedKey":string,"keyConfidence":number,"hasModulation":boolean,"warnings":string[],"corrections":[{"original":string,"corrected":string,"reason":string}],"sections":[{"type":"INTRO|VERSE|PRECHORUS|CHORUS|POSTCHORUS|BRIDGE|INTERLUDE|INSTRUMENTAL|SOLO|SPONTANEOUS|FINAL_CHORUS|OUTRO|END|UNKNOWN","label":string,"order":number,"content":string}]}`;
 
 export function buildUserPrompt(input: AiReviewInput): string {
-  const structureRule = input.localHints.hasExplicitSections
-    ? `La canción ya trae secciones. Conserva este orden: ${input.localHints.sectionLabels.join(' > ') || 'detectado localmente'}.`
-    : `La canción no trae secciones explícitas. Clasifica semánticamente los ${input.localHints.blockCount} bloques locales sin alterar su cantidad.`;
+  const structureRule = `Clasifica semánticamente los ${input.localHints.blockCount} bloques SIN etiqueta explícita. Los demás bloques están bloqueados y no se enviaron.`;
 
   return `Título obligatorio: ${input.title || '(vacío)'}
 Artista obligatorio: ${input.artist || '(vacío)'}
