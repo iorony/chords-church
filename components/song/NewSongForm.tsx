@@ -513,30 +513,39 @@ export default function NewSongForm() {
         </div>
       )}
 
-      <div className="max-w-sm rounded-lg border border-gray-200 dark:border-gray-800 p-3">
-        <label htmlFor="final-song-key" className="block text-sm font-medium mb-1">
-          Tono final de la canción
-        </label>
-        <select
-          id="final-song-key"
-          value={selectedKey || aiResult?.detectedKey || 'C'}
-          onChange={(event) => setSelectedKey(event.target.value)}
-          className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
-        >
-          <optgroup label="Tonos mayores">
-            {ALL_KEYS_GENERAL.map((key) => (
-              <option key={key} value={key}>{key}</option>
-            ))}
-          </optgroup>
-          <optgroup label="Tonos menores">
-            {ALL_KEYS_GENERAL.map((key) => (
-              <option key={`${key}m`} value={`${key}m`}>{key}m</option>
-            ))}
-          </optgroup>
-        </select>
-        <p className="text-xs text-gray-500 mt-1">
-          Puedes conservar el tono recomendado, usar el alternativo o elegir cualquier tono mayor o menor. Esta selección define el tono base al guardar y no transpone automáticamente el contenido.
-        </p>
+      <div className="w-full rounded-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 md:flex-1 md:pr-6">
+            <p className="text-sm font-medium">Tono final de la canción</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+              Conserva el tono recomendado, usa el alternativo o elige cualquier tono mayor o menor.
+              Esta selección define el tono base al guardar y no transpone automáticamente el contenido.
+            </p>
+          </div>
+
+          <div className="w-full md:w-64 md:flex-none">
+            <label htmlFor="final-song-key" className="sr-only">
+              Seleccionar tono final de la canción
+            </label>
+            <select
+              id="final-song-key"
+              value={selectedKey || aiResult?.detectedKey || 'C'}
+              onChange={(event) => setSelectedKey(event.target.value)}
+              className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
+            >
+              <optgroup label="Tonos mayores">
+                {ALL_KEYS_GENERAL.map((key) => (
+                  <option key={key} value={key}>{key}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Tonos menores">
+                {ALL_KEYS_GENERAL.map((key) => (
+                  <option key={`${key}m`} value={`${key}m`}>{key}m</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
