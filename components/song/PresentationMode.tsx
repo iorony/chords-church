@@ -587,6 +587,20 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
             {hasSongs ? songIndex + 1 : 0}/{songs.length}: {song.title}
           </span>
         </div>
+        <button
+          onClick={() => setDark((d) => !d)}
+          className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium sm:hidden ${
+            dark
+              ? 'border-gray-700 bg-gray-900 text-white'
+              : 'border-gray-300 bg-white text-gray-900'
+          }`}
+          aria-label={dark ? 'Cambiar a vista clara' : 'Cambiar a vista oscura'}
+          title={dark ? 'Vista oscura — tocar para cambiar a clara' : 'Vista clara — tocar para cambiar a oscura'}
+        >
+          <span aria-hidden="true">{dark ? '🌙' : '☀️'}</span>
+          <span>{dark ? 'Oscuro' : 'Claro'}</span>
+        </button>
+
         <div className="hidden shrink-0 items-center gap-2 sm:flex sm:gap-3">
           <button onClick={() => setShowKeyPicker((v) => !v)} className="opacity-70 hover:opacity-100">
             {currentKey} <span>(T)</span>
