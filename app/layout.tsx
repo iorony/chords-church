@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import NavAuthStatus from '@/components/ui/NavAuthStatus';
 import MobileNavigation from '@/components/ui/MobileNavigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavigationProgress from '@/components/ui/NavigationProgress';
 
 const THEME_INIT_SCRIPT = `
 (function () {
@@ -50,6 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="min-h-screen flex flex-col overflow-x-hidden">
+        <NavigationProgress />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <header className="sticky top-0 z-40 border-b border-gray-200 bg-bg-light/95 backdrop-blur dark:border-gray-800 dark:bg-bg-dark/95">
           <div className="app-container flex min-h-16 items-center justify-between gap-3 py-3">

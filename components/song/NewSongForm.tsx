@@ -9,6 +9,7 @@ import { ALL_KEYS_GENERAL } from '@/lib/chords/transposition';
 import ChordChart from './ChordChart';
 import type { AiReviewResponse } from '@/lib/ai/schema';
 import { normalizeText, toProperName, toProperTitle } from '@/lib/services/text-utils';
+import AsyncProgress from '@/components/ui/AsyncProgress';
 
 type Step = 'form' | 'reviewing' | 'compare';
 type ReviewMode = 'ai' | 'local';
@@ -548,7 +549,11 @@ export default function NewSongForm() {
   }
 
   if (step === 'reviewing') {
-    return <p className="text-gray-500">{reviewMode === 'ai' ? 'Analizando la canción con IA...' : 'Estructurando la canción localmente...'}</p>;
+    return (
+      <div className="mx-auto w-full max-w-2xl py-8 sm:py-14">
+        <AsyncProgress mode={reviewMode} />
+      </div>
+    );
   }
 
   // step === 'compare'
