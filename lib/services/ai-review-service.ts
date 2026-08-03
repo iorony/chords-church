@@ -339,6 +339,91 @@ function normalizeAiResult(
   };
 }
 
+async function detectArtistMetadata(
+  input: ReviewSongInput,
+  providers: AiProvider[],
+  localKeyLabel: string,
+  localKeyConfidence: number,
+  localModulation: boolean,
+  alternateKeyLabel: string | null
+): Promise<{
+  artist: string | null;
+  confidence: number;
+  alternatives: Array<{ name: string; confidence: number }>;
+  providerName: string | null;
+  failures: string[];
+}> {
+  if (input.artist?.trim()) {
+    return {
+      artist: input.artist.trim(),
+      confidence: 1,
+      alternatives: [],
+      providerName: null,
+      failures: []
+    };
+  }
+
+  const metadataInput: AiReviewInput = {
+    title: input.title,
+    artist: undefined,
+    content: buildAiBlockInput([{ id: 1, content: input.content, explicitLabel: null } as SongBlock]),
+    localHints: {
+      detectedKey: localKeyLabel,
+      keyConfidence: localKeyConfidence,
+      alternateKey: alternateKeyLabel,
+      hasModulation: localModulation,
+      hasExplicitSections: hasExplicitSectionLabels(input.content),
+      sectionLabels: [],
+      blockCount: 1,
+      chordSummary: buildChordSummary(input.content),
+      metadataOnly: true
+    }
+  };
+
+  const failures: string[] = [];
+  for (const provider of providers) {
+    try {
+      const result = await executeWithRetry(provider, metadataInput);
+      const directArtist = result.detectedArtist?.trim() || null;
+      const confidence = Number(result.detectedArtistConfidence || (directArtist ? 0.75 : 0));
+      const normalizedDirect = directArtist?.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
+      const alternatives = (result.artistAlternatives || [])
+        .filter((item) => item.name?.trim())
+        .filter((item, index, items) => {
+          const normalized = item.name.trim().toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return normalized !== normalizedDirect && items.findIndex((candidate) => candidate.name.trim().toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized) === index;
+        })
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 4);
+      const bestAlternative = alternatives[0];
+
+      if (directArtist && confidence >= 0.55) {
+        console.info(`[AI] Artista identificado con ${provider.name}: ${directArtist} (${Math.round(confidence * 100)}%).`);
+        return { artist: directArtist, confidence, alternatives, providerName: provider.name, failures };
+      }
+
+      if (bestAlternative && bestAlternative.confidence >= 0.62) {
+        console.info(`[AI] Artista sugerido con ${provider.name}: ${bestAlternative.name} (${Math.round(bestAlternative.confidence * 100)}%).`);
+        return {
+          artist: bestAlternative.name,
+          confidence: bestAlternative.confidence,
+          alternatives,
+          providerName: provider.name,
+          failures
+        };
+      }
+
+      failures.push(`${provider.name}: no identificó un artista con confianza suficiente`);
+    } catch (err) {
+      const message = errorMessage(err);
+      failures.push(`${provider.name}: ${message}`);
+      console.warn(`[AI] ${provider.name} no pudo identificar el artista: ${message}`);
+    }
+  }
+
+  return { artist: null, confidence: 0, alternatives: [], providerName: null, failures };
+}
+
 export function reviewSongLocally(input: ReviewSongInput): {
   result: AiReviewResponse;
   aiAvailable: boolean;
@@ -354,6 +439,8 @@ export function reviewSongLocally(input: ReviewSongInput): {
     result: {
       detectedTitle: input.title || null,
       detectedArtist: input.artist || null,
+      detectedArtistConfidence: input.artist ? 1 : 0,
+      artistAlternatives: [],
       detectedKey: formatKeyLabel(localKey),
       keyConfidence: localKey.confidence,
       hasModulation: localModulation,
@@ -397,17 +484,48 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
   const localSections = rebuildSectionsFromBlocks(blocks, new Map());
   const { alternate: alternateKey } = detectKeyWithAlternate(input.content);
 
-  // Las secciones explícitas están resueltas de forma determinista. Si no hay
-  // bloques pendientes, la IA no tiene nada que clasificar.
-  if (unresolvedBlocks.length === 0) {
-    const local = reviewSongLocally(input);
-    return { ...local, providerName: 'local (secciones explícitas)' };
+  const providers = getConfiguredProviders();
+  const artistMetadata = await detectArtistMetadata(
+    input,
+    providers,
+    formatKeyLabel(localKey),
+    localKey.confidence,
+    localModulation,
+    alternateKey ? formatKeyLabel(alternateKey) : null
+  );
+  // El artista sugerido por IA se conserva como candidato, pero no se usa como
+  // artista confirmado hasta que el usuario lo seleccione explícitamente.
+  const confirmedArtist = input.artist?.trim() || undefined;
+  const effectiveArtist = confirmedArtist;
+  const needsMetadataDetection = !confirmedArtist || !input.title?.trim();
+
+  // Las secciones explícitas están resueltas de forma determinista. La detección
+  // del artista ya se ejecutó en una llamada independiente antes de decidir si
+  // hace falta clasificar bloques.
+  if (unresolvedBlocks.length === 0 && !needsMetadataDetection) {
+    const local = reviewSongLocally({ ...input, artist: effectiveArtist });
+    return {
+      ...local,
+      result: {
+        ...local.result,
+        detectedArtist: confirmedArtist || artistMetadata.artist || null,
+        detectedArtistConfidence: confirmedArtist ? 1 : artistMetadata.confidence,
+        artistAlternatives: artistMetadata.alternatives
+      },
+      aiAvailable: Boolean(artistMetadata.providerName),
+      providerName: artistMetadata.providerName || 'local (secciones explícitas)'
+    };
   }
+
+  const metadataOnly = unresolvedBlocks.length === 0;
+  const metadataReferenceBlock = metadataOnly
+    ? [{ id: 1, content: input.content, explicitLabel: null } as SongBlock]
+    : unresolvedBlocks;
 
   const aiInput: AiReviewInput = {
     title: input.title,
-    artist: input.artist,
-    content: buildAiBlockInput(unresolvedBlocks),
+    artist: confirmedArtist,
+    content: buildAiBlockInput(metadataReferenceBlock),
     localHints: {
       detectedKey: formatKeyLabel(localKey),
       keyConfidence: localKey.confidence,
@@ -417,25 +535,40 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
       sectionLabels: hasExplicitSectionLabels(input.content)
         ? localSections.map((section) => section.label)
         : [],
-      blockCount: unresolvedBlocks.length,
-      chordSummary: buildChordSummary(input.content)
+      blockCount: metadataReferenceBlock.length,
+      chordSummary: buildChordSummary(input.content),
+      metadataOnly
     }
   };
 
-  const providers = getConfiguredProviders();
-  const failures: string[] = [];
+  const failures: string[] = [...artistMetadata.failures];
 
   for (const provider of providers) {
     try {
       const rawResult = await executeWithRetry(provider, aiInput);
-      const result = normalizeAiResult(
-        rawResult,
-        input.content,
-        blocks,
-        unresolvedBlocks,
-        formatKeyLabel(localKey),
-        localKey.confidence
-      );
+      const result = metadataOnly
+        ? {
+            ...reviewSongLocally(input).result,
+            detectedTitle: rawResult.detectedTitle || input.title || null,
+            detectedArtist: confirmedArtist || artistMetadata.artist || rawResult.detectedArtist || null,
+            detectedArtistConfidence: confirmedArtist ? 1 : (artistMetadata.confidence || rawResult.detectedArtistConfidence || 0),
+            artistAlternatives: artistMetadata.alternatives.length ? artistMetadata.alternatives : (rawResult.artistAlternatives || []),
+            warnings: Array.from(new Set(rawResult.warnings || [])),
+            corrections: rawResult.corrections || []
+          }
+        : {
+            ...normalizeAiResult(
+              rawResult,
+              input.content,
+              blocks,
+              unresolvedBlocks,
+              formatKeyLabel(localKey),
+              localKey.confidence
+            ),
+            detectedArtist: confirmedArtist || artistMetadata.artist || rawResult.detectedArtist || null,
+            detectedArtistConfidence: confirmedArtist ? 1 : (artistMetadata.confidence || rawResult.detectedArtistConfidence || 0),
+            artistAlternatives: artistMetadata.alternatives.length ? artistMetadata.alternatives : (rawResult.artistAlternatives || [])
+          };
       const aiAwareAlternateKey = detectAlternateKeyForPrimary(input.content, result.detectedKey);
       return {
         result,
@@ -458,7 +591,9 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
 
   const fallback: AiReviewResponse = {
     detectedTitle: input.title || null,
-    detectedArtist: input.artist || null,
+    detectedArtist: confirmedArtist || artistMetadata.artist || null,
+    detectedArtistConfidence: confirmedArtist ? 1 : artistMetadata.confidence,
+    artistAlternatives: artistMetadata.alternatives,
     detectedKey: formatKeyLabel(localKey),
     keyConfidence: localKey.confidence,
     hasModulation: localModulation,

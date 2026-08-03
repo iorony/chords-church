@@ -17,6 +17,8 @@ export interface AiReviewInput {
     blockCount: number;
     /** Resumen compacto de los acordes/progresiones detectados. */
     chordSummary: string;
+    /** Cuando no hay bloques pendientes, la IA solo identifica metadatos. */
+    metadataOnly?: boolean;
   };
 }
 
@@ -60,16 +62,44 @@ Tu tarea es de ENRIQUECIMIENTO, no de reescritura:
 - Si aparecen PARTE I, PARTE II, PARTE III, etc., conserva esas etiquetas como PARTE. No las conviertas a ESTROFA salvo que el servidor ya las haya clasificado explícitamente así.
 - No inventes bloques, no elimines bloques, no dividas bloques y no unas dos secciones.
 - Puedes sugerir título, artista, tono, modulación, advertencias y correcciones.
+- Si el artista no fue proporcionado, intenta identificar al intérprete o agrupación más conocida a partir del título y la letra.
+- Devuelve detectedArtist solo cuando tengas una confianza razonable. No inventes un artista; si no puedes identificarlo, devuelve null.
+- Si el artista sí fue proporcionado, consérvalo salvo que exista un error evidente.
 - No repitas ESTROFA, PRE-CORO o CORO cuando sean bloques idénticos; el servidor hará la deduplicación final.
 
 Esquema:
 {"detectedTitle":string|null,"detectedArtist":string|null,"detectedKey":string,"keyConfidence":number,"hasModulation":boolean,"warnings":string[],"corrections":[{"original":string,"corrected":string,"reason":string}],"sections":[{"type":"INTRO|VERSE|PRECHORUS|CHORUS|POSTCHORUS|BRIDGE|INTERLUDE|INSTRUMENTAL|SOLO|SPONTANEOUS|FINAL_CHORUS|OUTRO|END|UNKNOWN","label":string,"order":number,"content":string}]}`;
 
-export function buildUserPrompt(input: AiReviewInput): string {
-  const structureRule = `Clasifica semánticamente los ${input.localHints.blockCount} bloques SIN etiqueta explícita. Los demás bloques están bloqueados y no se enviaron.`;
 
-  return `Título obligatorio: ${input.title || '(vacío)'}
-Artista obligatorio: ${input.artist || '(vacío)'}
+export const METADATA_SYSTEM_PROMPT = `Eres un especialista en catálogos de música cristiana y de adoración en español e inglés.
+Tu única tarea es identificar el intérprete o agrupación más probable de una canción usando el título y fragmentos distintivos de la letra.
+
+Reglas obligatorias:
+- No estructures, no corrijas y no reescribas la canción.
+- Distingue entre compositor y artista/intérprete; devuelve el artista asociado con la versión descrita por título y letra.
+- Usa coincidencias de frases distintivas de la letra, no solamente el título.
+- Si existen varias versiones, elige la que mejor coincida con la letra proporcionada y agrega entre 2 y 4 opciones distintas en artistAlternatives, ordenadas por confianza.
+- artistAlternatives debe incluir intérpretes alternativos plausibles, no repetir detectedArtist y no incluir compositores si no son intérpretes conocidos de esa versión.
+- Aunque exista una hipótesis principal clara, devuelve alternativas razonables cuando las haya.
+- Devuelve una mejor hipótesis incluso con confianza media; usa null únicamente cuando no puedas asociarla razonablemente con ningún artista.
+- No inventes nombres.
+- detectedArtistConfidence debe estar entre 0 y 1.
+- Devuelve exactamente un bloque de referencia UNKNOWN con content BLOCK_1 para cumplir el esquema.
+
+Esquema JSON:
+{"detectedTitle":string|null,"detectedArtist":string|null,"detectedArtistConfidence":number,"artistAlternatives":[{"name":string,"confidence":number}],"detectedKey":string,"keyConfidence":number,"hasModulation":boolean,"warnings":string[],"corrections":[],"sections":[{"type":"UNKNOWN","label":"METADATA","order":0,"content":"BLOCK_1"}]}`;
+
+export function getSystemPrompt(input: AiReviewInput): string {
+  return input.localHints.metadataOnly ? METADATA_SYSTEM_PROMPT : SYSTEM_PROMPT;
+}
+
+export function buildUserPrompt(input: AiReviewInput): string {
+  const structureRule = input.localHints.metadataOnly
+    ? `MODO EXCLUSIVO DE IDENTIFICACIÓN DE ARTISTA. Usa el título y la letra completa del único bloque. Busca frases distintivas, identifica la versión más probable y devuelve detectedArtist, detectedArtistConfidence y de 2 a 4 artistAlternatives distintas cuando existan versiones plausibles. No analices la estructura.`
+    : `Clasifica semánticamente los ${input.localHints.blockCount} bloques SIN etiqueta explícita. Los demás bloques están bloqueados y no se enviaron.`;
+
+  return `Título proporcionado: ${input.title || '(vacío; intenta detectarlo)'}
+Artista proporcionado: ${input.artist || '(vacío; identifícalo a partir del título y la letra si tienes confianza)'}
 Preanálisis local: tono ${input.localHints.detectedKey} (${input.localHints.keyConfidence}), alternativo ${input.localHints.alternateKey || 'ninguno'}, modulación ${input.localHints.hasModulation ? 'sí' : 'no'}.
 Acordes detectados: ${input.localHints.chordSummary || 'sin resumen'}.
 ${structureRule}

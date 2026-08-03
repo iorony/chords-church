@@ -1,5 +1,5 @@
 import 'server-only';
-import { AiProvider, AiProviderError, AiReviewInput, SYSTEM_PROMPT, buildUserPrompt } from '../provider';
+import { AiProvider, AiProviderError, AiReviewInput, getSystemPrompt, buildUserPrompt } from '../provider';
 import { AiReviewResponse } from '../schema';
 import { fetchWithAiTimeout } from '../http';
 import { parseAiJson } from './anthropic';
@@ -19,7 +19,7 @@ export const geminiProvider: AiProvider = {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          systemInstruction: { parts: [{ text: getSystemPrompt(input) }] },
           contents: [{ role: 'user', parts: [{ text: buildUserPrompt(input) }] }],
           generationConfig: { responseMimeType: 'application/json' }
         })

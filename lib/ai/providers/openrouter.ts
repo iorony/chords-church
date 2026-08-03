@@ -4,7 +4,7 @@ import {
   AiProvider,
   AiProviderError,
   AiReviewInput,
-  SYSTEM_PROMPT,
+  getSystemPrompt,
   buildUserPrompt
 } from '../provider';
 
@@ -68,7 +68,7 @@ export const openrouterProvider: AiProvider = {
           messages: [
             {
               role: 'system',
-              content: SYSTEM_PROMPT
+              content: getSystemPrompt(input)
             },
             {
               role: 'user',

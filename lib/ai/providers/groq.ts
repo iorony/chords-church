@@ -4,7 +4,7 @@ import {
   AiProvider,
   AiProviderError,
   AiReviewInput,
-  SYSTEM_PROMPT,
+  getSystemPrompt,
   buildUserPrompt
 } from '../provider';
 import { fetchWithAiTimeout } from '../http';
@@ -40,7 +40,7 @@ export const groqProvider: AiProvider = {
           max_completion_tokens: 1400,
           response_format: { type: 'json_object' },
           messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: getSystemPrompt(input) },
             { role: 'user', content: buildUserPrompt(input) }
           ]
         })

@@ -1,5 +1,5 @@
 import 'server-only';
-import { AiProvider, AiProviderError, AiReviewInput, SYSTEM_PROMPT, buildUserPrompt } from '../provider';
+import { AiProvider, AiProviderError, AiReviewInput, getSystemPrompt, buildUserPrompt } from '../provider';
 import { AiReviewResponseSchema, AiReviewResponse } from '../schema';
 
 /**
@@ -26,7 +26,7 @@ export const anthropicProvider: AiProvider = {
       body: JSON.stringify({
         model,
         max_tokens: 2600,
-        system: SYSTEM_PROMPT,
+        system: getSystemPrompt(input),
         messages: [{ role: 'user', content: buildUserPrompt(input) }]
       })
     });
@@ -108,6 +108,8 @@ export function parseAiJson(raw: string, input?: AiReviewInput): AiReviewRespons
   const normalized = {
     detectedTitle: parsedJson?.detectedTitle ?? parsedJson?.title ?? parsedJson?.titulo ?? null,
     detectedArtist: parsedJson?.detectedArtist ?? parsedJson?.artist ?? parsedJson?.artista ?? null,
+    detectedArtistConfidence: Number(parsedJson?.detectedArtistConfidence ?? parsedJson?.artistConfidence ?? parsedJson?.confianzaArtista ?? ((parsedJson?.detectedArtist ?? parsedJson?.artist ?? parsedJson?.artista) ? 0.75 : 0)),
+    artistAlternatives: (Array.isArray(parsedJson?.artistAlternatives) ? parsedJson.artistAlternatives : Array.isArray(parsedJson?.alternatives) ? parsedJson.alternatives : []).map((item: any) => ({ name: String(item?.name ?? item?.artist ?? item?.artista ?? ''), confidence: Math.max(0, Math.min(1, Number(item?.confidence ?? item?.confianza ?? 0))) })).filter((item: any) => item.name),
     detectedKey: String(parsedJson?.detectedKey ?? parsedJson?.key ?? parsedJson?.tono ?? input?.localHints.detectedKey ?? 'C'),
     keyConfidence: Number(parsedJson?.keyConfidence ?? parsedJson?.confidence ?? parsedJson?.confianza ?? input?.localHints.keyConfidence ?? 0),
     hasModulation: Boolean(parsedJson?.hasModulation ?? parsedJson?.modulation ?? parsedJson?.modulacion ?? input?.localHints.hasModulation ?? false),

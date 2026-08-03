@@ -15,6 +15,8 @@ export const AiSectionSchema = z.object({
 export const AiReviewResponseSchema = z.object({
   detectedTitle: z.string().nullable().default(null),
   detectedArtist: z.string().nullable().default(null),
+  detectedArtistConfidence: z.number().min(0).max(1).default(0),
+  artistAlternatives: z.array(z.object({ name: z.string(), confidence: z.number().min(0).max(1) })).default([]),
   detectedKey: z.string().min(1),
   keyConfidence: z.number().min(0).max(1),
   hasModulation: z.boolean().default(false),

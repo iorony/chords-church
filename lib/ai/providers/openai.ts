@@ -1,5 +1,5 @@
 import 'server-only';
-import { AiProvider, AiProviderError, AiReviewInput, SYSTEM_PROMPT, buildUserPrompt } from '../provider';
+import { AiProvider, AiProviderError, AiReviewInput, getSystemPrompt, buildUserPrompt } from '../provider';
 import { AiReviewResponse } from '../schema';
 import { parseAiJson } from './anthropic';
 
@@ -22,7 +22,7 @@ export const openaiProvider: AiProvider = {
         model,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: getSystemPrompt(input) },
           { role: 'user', content: buildUserPrompt(input) }
         ]
       })

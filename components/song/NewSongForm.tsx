@@ -38,6 +38,7 @@ export default function NewSongForm() {
   const [useCorrected, setUseCorrected] = useState(true);
   const [alternateKey, setAlternateKey] = useState<{ key: string; confidence: number; isMinor: boolean } | null>(null);
   const [selectedKey, setSelectedKey] = useState('');
+  const [editingDetectedArtist, setEditingDetectedArtist] = useState(false);
 
   async function checkExistingSong(
     candidate: { title: string; artist: string; content?: string },
@@ -125,6 +126,35 @@ export default function NewSongForm() {
 
     return () => window.clearTimeout(timer);
   }, [artist]);
+
+  async function findOfficialArtistName(name: string): Promise<string> {
+    const proper = toProperName(name);
+    if (!proper) return '';
+
+    const normalized = normalizeText(proper);
+    const { data, error: lookupError } = await supabase
+      .from('artists')
+      .select('name, normalized_name')
+      .order('name')
+      .limit(500);
+
+    if (lookupError) {
+      console.warn('No se pudo verificar el artista detectado por IA:', lookupError);
+      return proper;
+    }
+
+    const exact = (data || []).find(
+      (item) => normalizeText(item.normalized_name || item.name) === normalized
+    );
+    if (exact) return exact.name;
+
+    const strongMatches = (data || []).filter((item) => {
+      const candidate = normalizeText(item.normalized_name || item.name);
+      return candidate.startsWith(normalized) || normalized.startsWith(candidate);
+    });
+
+    return strongMatches.length === 1 ? strongMatches[0].name : proper;
+  }
 
   function normalizeArtistAndUseExisting() {
     const proper = toProperName(artist);
@@ -220,8 +250,8 @@ export default function NewSongForm() {
       setError('El título de la canción es obligatorio.');
       return;
     }
-    if (!normalizedArtist) {
-      setError('El artista de la canción es obligatorio.');
+    if (!normalizedArtist && reviewMode === 'local') {
+      setError('Para el análisis local debes escribir el artista. En modo IA puede detectarse automáticamente.');
       return;
     }
     if (!content.trim()) {
@@ -230,13 +260,15 @@ export default function NewSongForm() {
     }
     setStep('reviewing');
     try {
-      const existing = await checkExistingSong(
-        { title: normalizedTitle, artist: normalizedArtist, content },
-        { promote: true }
-      );
-      if (existing) {
-        setStep('form');
-        return;
+      if (normalizedArtist) {
+        const existing = await checkExistingSong(
+          { title: normalizedTitle, artist: normalizedArtist, content },
+          { promote: true }
+        );
+        if (existing) {
+          setStep('form');
+          return;
+        }
       }
 
       const res = await fetch('/api/ai/review', {
@@ -250,23 +282,58 @@ export default function NewSongForm() {
         setStep('form');
         return;
       }
-      setAiResult(data.result);
+      const reviewedContent = renderSections(data.result.sections as any);
+      const reviewedTitle = toProperTitle(title || data.result.detectedTitle || 'Sin título');
+      const userProvidedArtist = Boolean(normalizedArtist);
+
+      // Cuando el usuario dejó el artista vacío, la IA solo propone candidatos.
+      // No se guarda automáticamente el primer resultado para evitar asignar una
+      // versión incorrecta de una canción con múltiples intérpretes.
+      const detectedArtist = data.result.detectedArtist
+        ? await findOfficialArtistName(data.result.detectedArtist)
+        : '';
+      const normalizedAlternatives = await Promise.all(
+        (data.result.artistAlternatives || []).map(async (candidate: { name: string; confidence: number }) => ({
+          ...candidate,
+          name: await findOfficialArtistName(candidate.name)
+        }))
+      );
+      const reviewedArtist = userProvidedArtist
+        ? await findOfficialArtistName(normalizedArtist)
+        : '';
+
+      if (reviewMode === 'local' && !reviewedArtist) {
+        setError('El artista de la canción es obligatorio.');
+        setStep('form');
+        return;
+      }
+
+      setTitle(reviewedTitle);
+      setArtist(reviewedArtist);
+      setEditingDetectedArtist(false);
+      setAiResult({
+        ...data.result,
+        detectedArtist: detectedArtist || null,
+        artistAlternatives: normalizedAlternatives.filter((candidate) => candidate.name),
+        detectedTitle: reviewedTitle
+      });
       setSelectedKey(data.result.detectedKey || 'C');
       setAiAvailable(data.aiAvailable);
       setAiWarning(reviewMode === 'ai' ? data.error : null);
       setAlternateKey(data.alternateKey ?? null);
 
-      const reviewedContent = renderSections(data.result.sections as any);
-      const reviewedTitle = toProperTitle(title || data.result.detectedTitle || 'Sin título');
-      const reviewedArtist = toProperName(artist || data.result.detectedArtist || '');
-      try {
-        await checkExistingSong({
-          title: reviewedTitle,
-          artist: reviewedArtist,
-          content: reviewedContent || content
-        }, { promote: true });
-      } catch (duplicateError: any) {
-        setError(duplicateError?.message || 'No se pudo comprobar si la canción ya existe.');
+      if (reviewedArtist) {
+        try {
+          await checkExistingSong({
+            title: reviewedTitle,
+            artist: reviewedArtist,
+            content: reviewedContent || content
+          }, { promote: true });
+        } catch (duplicateError: any) {
+          setError(duplicateError?.message || 'No se pudo comprobar si la canción ya existe.');
+        }
+      } else if (reviewMode === 'ai') {
+        setError(null);
       }
 
       setStep('compare');
@@ -280,6 +347,36 @@ export default function NewSongForm() {
       setStep('form');
     }
   }
+
+  async function chooseDetectedArtist(name: string) {
+    const officialName = await findOfficialArtistName(name);
+    if (!officialName) return;
+
+    setArtist(officialName);
+    setAiResult((current) => current ? { ...current, detectedArtist: officialName } : current);
+    setEditingDetectedArtist(false);
+    setDuplicateMatch(null);
+    setError(null);
+
+    try {
+      await checkExistingSong(
+        { title: toProperTitle(title), artist: officialName, content: correctedContent || content },
+        { promote: false, silent: true }
+      );
+    } catch (artistDuplicateError) {
+      console.warn('No se pudo comprobar el artista seleccionado:', artistDuplicateError);
+    }
+  }
+
+  const artistOptions = aiResult
+    ? [
+        ...(aiResult.detectedArtist ? [{ name: aiResult.detectedArtist, confidence: aiResult.detectedArtistConfidence || 0 }] : []),
+        ...(aiResult.artistAlternatives || [])
+      ].filter((item, index, items) => {
+        const normalized = normalizeText(item.name);
+        return normalized && items.findIndex((candidate) => normalizeText(candidate.name) === normalized) === index;
+      })
+    : [];
 
   const correctedContent = aiResult ? renderSections(aiResult.sections as any) : '';
 
@@ -335,6 +432,12 @@ export default function NewSongForm() {
     const finalTitle = toProperTitle(title || aiResult?.detectedTitle || 'Sin título');
     const finalArtist = toProperName(artist || aiResult?.detectedArtist || '');
     const finalContent = useCorrected ? correctedContent : content;
+
+    if (!finalArtist) {
+      setSaving(false);
+      setError('No se pudo determinar el artista. Escríbelo antes de guardar la canción.');
+      return;
+    }
 
     try {
       const match = await checkExistingSong({
@@ -460,7 +563,9 @@ export default function NewSongForm() {
             />
           </div>
           <div className="relative">
-            <label className="block text-sm mb-1">Artista <span className="text-danger">*</span></label>
+            <label className="block text-sm mb-1">
+              Artista {reviewMode === 'local' ? <span className="text-danger">*</span> : <span className="text-xs text-gray-500">(opcional con IA)</span>}
+            </label>
             <input
               value={artist}
               onChange={(e) => {
@@ -470,9 +575,9 @@ export default function NewSongForm() {
               onFocus={() => artistSuggestions.length > 0 && setShowArtistSuggestions(true)}
               onBlur={() => window.setTimeout(normalizeArtistAndUseExisting, 120)}
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
-              placeholder="Nombre del artista"
+              placeholder={reviewMode === 'ai' ? 'Opcional: la IA puede detectarlo' : 'Nombre del artista'}
               autoComplete="off"
-              required
+              required={reviewMode === 'local'}
             />
             {checkingArtists && (
               <span className="absolute right-3 top-9 text-xs text-gray-500">Buscando...</span>
@@ -539,7 +644,7 @@ export default function NewSongForm() {
         </fieldset>
         <button
           onClick={handleReview}
-          disabled={!title.trim() || !artist.trim() || !content.trim() || checkingDuplicate || Boolean(duplicateMatch)}
+          disabled={!title.trim() || !content.trim() || (reviewMode === 'local' && !artist.trim()) || checkingDuplicate || Boolean(duplicateMatch)}
           className="bg-primary text-white px-5 py-2.5 rounded-md hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {reviewMode === 'ai' ? 'Revisar y estructurar con IA' : 'Revisar y estructurar localmente'}
@@ -630,6 +735,74 @@ export default function NewSongForm() {
         </div>
       )}
 
+      {reviewMode === 'ai' && aiResult && (
+        <div className="w-full rounded-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0 md:flex-1 md:pr-6">
+              <p className="text-sm font-medium">Confirma el artista de esta versión</p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                La IA propone opciones, pero ninguna se guardará hasta que la selecciones. Si ninguna es correcta, indica otro artista.
+              </p>
+            </div>
+
+            <div className="w-full space-y-2 md:w-80 md:flex-none">
+              {artistOptions.length > 0 && !editingDetectedArtist ? (
+                <select
+                  value={artist}
+                  onChange={(event) => void chooseDetectedArtist(event.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
+                >
+                  <option value="" disabled>Selecciona el artista correcto…</option>
+                  {artistOptions.map((option) => (
+                    <option key={`${option.name}-${option.confidence}`} value={option.name}>
+                      {option.name}{option.confidence > 0 ? ` — ${Math.round(option.confidence * 100)}%` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : !editingDetectedArtist ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                  La IA no encontró una opción suficientemente clara. Indica el artista manualmente.
+                </div>
+              ) : null}
+
+              {editingDetectedArtist ? (
+                <div className="flex gap-2">
+                  <input
+                    value={artist}
+                    onChange={(event) => setArtist(event.target.value)}
+                    onBlur={() => setArtist(toProperName(artist))}
+                    placeholder="Escribe otro artista"
+                    className="min-w-0 flex-1 border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void chooseDetectedArtist(artist)}
+                    className="rounded-md bg-primary px-3 py-2 text-sm text-white"
+                  >
+                    Usar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingDetectedArtist(true)}
+                  className="text-left text-sm text-primary underline"
+                >
+                  Indicar otro artista
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reviewMode === 'ai' && aiResult && !artist && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          Debes confirmar un artista sugerido o escribir uno manualmente antes de guardar la canción.
+        </div>
+      )}
+
       <div className="w-full rounded-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0 md:flex-1 md:pr-6">
@@ -672,7 +845,7 @@ export default function NewSongForm() {
         </div>
         <div className="min-w-0 overflow-hidden border border-primary rounded-lg p-4">
           <h2 className="font-semibold mb-2 text-sm text-primary">
-            Versión estructurada {reviewMode === 'ai' ? 'con IA ' : 'localmente '}{aiResult && `— tono seleccionado ${selectedKey || aiResult.detectedKey} (recomendado ${aiResult.detectedKey}, confianza ${Math.round(aiResult.keyConfidence * 100)}%)`}
+            Versión estructurada {reviewMode === 'ai' ? 'con IA ' : 'localmente '}{aiResult && `— artista ${artist || aiResult.detectedArtist || 'sin identificar'} · tono seleccionado ${selectedKey || aiResult.detectedKey} (recomendado ${aiResult.detectedKey}, confianza ${Math.round(aiResult.keyConfidence * 100)}%)`}
           </h2>
           <ChordChart content={correctedContent} fontSizeClass="text-sm" />
         </div>
