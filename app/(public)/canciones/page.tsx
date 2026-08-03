@@ -40,12 +40,15 @@ export default async function SongsPage() {
   }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Canciones</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Busca por título o artista. Las coincidencias visibles se filtran en esta vista.
-        </p>
+    <div className="page-shell">
+      <div className="page-header">
+        <div>
+          <p className="page-eyebrow">Biblioteca musical</p>
+          <h1 className="page-title">Canciones</h1>
+          <p className="page-description">
+            Busca por título o artista, consulta tus favoritas y encuentra rápidamente el tono que necesitas.
+          </p>
+        </div>
       </div>
 
       <SongCatalogClient initialSongs={initialSongs} />

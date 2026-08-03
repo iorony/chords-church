@@ -6,6 +6,7 @@ import NavAuthStatus from '@/components/ui/NavAuthStatus';
 import MobileNavigation from '@/components/ui/MobileNavigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavigationProgress from '@/components/ui/NavigationProgress';
+import DesktopNavigation from '@/components/ui/DesktopNavigation';
 
 const THEME_INIT_SCRIPT = `
 (function () {
@@ -50,22 +51,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className="min-h-screen flex flex-col overflow-x-hidden">
+      <body className="min-h-screen flex flex-col overflow-x-hidden antialiased">
         <NavigationProgress />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <header className="sticky top-0 z-40 border-b border-gray-200 bg-bg-light/95 backdrop-blur dark:border-gray-800 dark:bg-bg-dark/95">
-          <div className="app-container flex min-h-16 items-center justify-between gap-3 py-3">
-            <Link href="/" className="shrink-0 font-bold text-lg text-primary dark:text-accent-teal">
-              🎵 Cancionero
+        <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-bg-light/90 shadow-[0_1px_0_rgba(15,23,42,.03)] backdrop-blur-xl dark:border-gray-800 dark:bg-bg-dark/90">
+          <div className="app-container flex min-h-[4.5rem] items-center justify-between gap-3 py-3">
+            <Link href="/" className="group flex shrink-0 items-center gap-2.5">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-lg text-white shadow-sm transition-transform group-hover:-rotate-3 dark:bg-accent-teal dark:text-gray-950">♪</span>
+              <span className="hidden sm:block">
+                <span className="block text-base font-extrabold tracking-tight text-gray-950 dark:text-white">Cancionero</span>
+                <span className="block text-[10px] font-medium uppercase tracking-[.16em] text-gray-400">Acordes para iglesias</span>
+              </span>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-4 lg:gap-5 text-sm">
-              {links.map((link) => (
-                <Link key={link.href} href={link.href} className="whitespace-nowrap hover:text-primary dark:hover:text-accent-teal">
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
+            <DesktopNavigation links={links} />
 
             <div className="hidden md:flex items-center gap-3 min-w-0">
               <ThemeToggle />
@@ -78,9 +77,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
 
-        <main className="app-container flex-1 py-5 sm:py-7">{children}</main>
+        <main className="app-container flex-1 py-6 sm:py-8 lg:py-10">{children}</main>
 
-        <footer className="border-t border-gray-200 dark:border-gray-800">
+        <footer className="mt-8 border-t border-gray-200/80 bg-white/50 dark:border-gray-800 dark:bg-gray-950/30">
           <div className="app-container py-7 text-sm text-gray-500">
             <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
               <p>© 2026 Cancionero — canciones y acordes para iglesias</p>

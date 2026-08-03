@@ -220,6 +220,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
   return (
     <div className="space-y-6">
       <div ref={suggestionBoxRef} className="relative w-full max-w-xl">
+        <span className="pointer-events-none absolute left-4 top-3.5 text-gray-400" aria-hidden="true">⌕</span>
         <input
           type="search"
           value={query}
@@ -229,7 +230,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
           }}
           onFocus={() => setShowSuggestions(true)}
           placeholder="Buscar por canción o artista..."
-          className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700"
+          className="ui-input h-12 pl-11 pr-10"
           aria-label="Buscar canciones"
           aria-autocomplete="list"
           aria-expanded={showSuggestions && suggestions.length > 0}
@@ -239,7 +240,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
         {showSuggestions && suggestions.length > 0 && (
           <div
             role="listbox"
-            className="absolute z-30 mt-1 max-h-80 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-950"
+            className="absolute z-30 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white p-1 shadow-2xl dark:border-gray-700 dark:bg-gray-950"
           >
             {suggestions.map((suggestion, index) => {
               const showSongHeading = suggestion.kind === 'song' && index === 0;
@@ -263,7 +264,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
                     role="option"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => chooseSuggestion(suggestion)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-gray-50 dark:hover:bg-gray-900"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">
@@ -289,15 +290,15 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
       </div>
 
       {localMatches.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {localMatches.map((song) => (
             <Link
               key={song.id}
               href={`/canciones/${song.slug}`}
-              className="rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary dark:border-gray-800"
+              className="group surface relative overflow-hidden p-5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg dark:hover:border-accent-teal/40"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="font-medium">{song.title}</div>
+                <div className="pr-2 text-base font-bold tracking-tight text-gray-950 transition-colors group-hover:text-primary dark:text-white dark:group-hover:text-accent-teal">{song.title}</div>
                 {song.is_favorite && (
                   <span
                     className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
@@ -309,10 +310,10 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
                 )}
               </div>
               {song.artist && (
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{song.artist}</div>
+                <div className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">{song.artist}</div>
               )}
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-accent-teal">
+              <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
+                <span className="status-pill border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300">
                   Tono {song.detected_key || song.original_key || '—'}
                 </span>
                 {song.status !== 'published' && <span className="text-xs text-gray-400">{song.status}</span>}
@@ -323,7 +324,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
       )}
 
       {shouldSearchRemotely && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800">
+        <div className="surface overflow-hidden">
           <div className="border-b border-gray-200 px-4 py-3 text-sm font-medium dark:border-gray-800">
             Buscar canción existente
           </div>
@@ -362,7 +363,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
                 type="button"
                 onClick={() => openSong(song)}
                 disabled={openingId === song.id}
-                className="shrink-0 rounded-md border border-primary px-3 py-1.5 text-sm text-primary disabled:opacity-50"
+                className="btn-secondary shrink-0 border-primary/40 text-primary dark:border-accent-teal/40 dark:text-accent-teal"
               >
                 {openingId === song.id
                   ? 'Abriendo...'

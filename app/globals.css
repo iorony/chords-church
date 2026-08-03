@@ -389,3 +389,75 @@ tr {
     animation: none !important;
   }
 }
+
+/* =========================
+   UI system — shared styles
+   ========================= */
+@layer base {
+  * {
+    @apply border-gray-200 dark:border-gray-800;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(30, 58, 138, .06), transparent 28rem),
+      radial-gradient(circle at 90% 12%, rgba(45, 182, 163, .06), transparent 24rem);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-gray-950 dark:bg-accent-teal/25 dark:text-white;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary/60 ring-offset-2 ring-offset-bg-light dark:ring-accent-teal/70 dark:ring-offset-bg-dark;
+  }
+}
+
+@layer components {
+  .page-shell { @apply space-y-6 sm:space-y-8; }
+  .page-header { @apply flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between; }
+  .page-eyebrow { @apply text-xs font-bold uppercase tracking-[.18em] text-primary dark:text-accent-teal; }
+  .page-title { @apply text-2xl font-extrabold tracking-tight text-gray-950 sm:text-3xl dark:text-white; }
+  .page-description { @apply mt-1 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400; }
+
+  .surface {
+    @apply rounded-2xl border border-gray-200/80 bg-white/85 shadow-[0_10px_30px_rgba(15,23,42,.05)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/80;
+  }
+  .surface-muted { @apply rounded-xl border border-gray-200/70 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/60; }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-gray-950 shadow-sm transition placeholder:text-gray-400 hover:border-gray-400 focus:border-primary dark:border-gray-700 dark:bg-gray-950 dark:text-white dark:hover:border-gray-600 dark:focus:border-accent-teal;
+  }
+  .ui-label { @apply mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200; }
+  .ui-help { @apply mt-1.5 text-xs leading-5 text-gray-500 dark:text-gray-400; }
+
+  .btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-[.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary { @apply btn bg-primary text-white shadow-sm hover:bg-primary-light dark:bg-accent-teal dark:text-gray-950 dark:hover:brightness-110; }
+  .btn-secondary { @apply btn border border-gray-300 bg-white text-gray-800 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800; }
+  .btn-ghost { @apply btn text-gray-600 hover:bg-gray-100 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+
+  .status-pill { @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold; }
+  .empty-state { @apply surface flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center; }
+}
+
+/* Uniform form controls throughout the app without requiring every page to be rewritten. */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  @apply rounded-xl border-gray-300 bg-white shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-primary focus:ring-primary/20 dark:border-gray-700 dark:bg-gray-950 dark:hover:border-gray-600 dark:focus:border-accent-teal dark:focus:ring-accent-teal/20;
+}
+
+button, a { touch-action: manipulation; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

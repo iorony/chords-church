@@ -1,6 +1,18 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import SetlistManager from '@/components/setlist/SetlistManager';
+
+function formatDate(value: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('es-GT', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(new Date(`${value}T00:00:00Z`));
+}
 
 export default async function SetlistDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServerSupabaseClient();
@@ -55,13 +67,49 @@ export default async function SetlistDetailPage({ params }: { params: { id: stri
     artist_name: song.artists?.name || null
   }));
 
+  const formattedDate = formatDate(setlist.event_date);
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">{setlist.name}</h1>
-        {setlist.event_date && <p className="text-gray-500 text-sm">{setlist.event_date}</p>}
-      </div>
-      <SetlistManager setlistId={setlist.id} setlistName={setlist.name} initialStatus={setlist.status} initialItems={(items as any) || []} favoriteSongs={favoriteSongs as any} searchableSongs={searchableSongs as any} canEdit={canEdit} />
+    <div className="space-y-6">
+      <Link href="/listas" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-primary">
+        ← Volver a Mis listas
+      </Link>
+
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-primary/5 p-5 shadow-sm dark:border-gray-800 dark:from-gray-950 dark:to-primary/10 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap gap-2">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:text-blue-300">
+                {setlist.status === 'confirmed' ? 'Lista confirmada' : setlist.status === 'finished' ? 'Lista finalizada' : setlist.status === 'archived' ? 'Lista archivada' : 'Borrador'}
+              </span>
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {setlist.visibility === 'public' ? 'Pública' : 'Privada'}
+              </span>
+            </div>
+            <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{setlist.name}</h1>
+            <div className="mt-3 flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-5">
+              {formattedDate && <span>📅 {formattedDate}</span>}
+              {setlist.location && <span>📍 {setlist.location}</span>}
+              <span>🎵 {(items || []).length} {(items || []).length === 1 ? 'canción' : 'canciones'}</span>
+            </div>
+          </div>
+          {!canEdit && (
+            <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-300">
+              Tienes acceso de lectura a esta lista.
+            </div>
+          )}
+        </div>
+      </section>
+
+      <SetlistManager
+        setlistId={setlist.id}
+        setlistName={setlist.name}
+        initialStatus={setlist.status}
+        initialItems={(items as any) || []}
+        favoriteSongs={favoriteSongs as any}
+        searchableSongs={searchableSongs as any}
+        canEdit={canEdit}
+      />
     </div>
   );
 }
