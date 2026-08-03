@@ -20,11 +20,11 @@ function normalizedArtist(value?: string | null): string {
  *
  * Se considera duplicado cuando:
  * - coinciden exactamente título y artista normalizados; o
- * - la letra/contenido tiene una similitud muy alta (>= 0.84).
+ * - la letra/contenido tiene una similitud muy alta (>= 0.84), siempre que el artista también coincida.
  *
- * Si no se indicó artista, un título igual solo bloquea cuando además el
- * contenido es suficientemente parecido, para evitar falsos positivos con
- * canciones distintas que comparten nombre.
+ * El artista es obligatorio en el formulario. Una canción con el mismo título
+ * o una letra parecida, pero atribuida a otro artista, se considera una versión
+ * distinta y no bloquea la creación.
  */
 export async function findSongDuplicates(
   supabase: SupabaseClient,
@@ -57,10 +57,12 @@ export async function findSongDuplicates(
     const exactTitle = Boolean(title) && candidateTitle === title;
     const sameArtist = artist ? candidateArtist === artist : !candidateArtist;
     const titleArtistDuplicate = exactTitle && sameArtist;
-    const noArtistButSameSong = exactTitle && !artist && contentSimilarity >= 0.65;
-    const contentDuplicate = contentSimilarity >= 0.84;
+    // La coincidencia de artista es obligatoria para cualquier tipo de duplicado.
+    // Esto permite registrar versiones o interpretaciones de la misma canción
+    // cuando pertenecen a artistas distintos.
+    const contentDuplicate = sameArtist && contentSimilarity >= 0.84;
 
-    if (!titleArtistDuplicate && !noArtistButSameSong && !contentDuplicate) continue;
+    if (!titleArtistDuplicate && !contentDuplicate) continue;
 
     duplicates.push({
       id: row.id,
@@ -68,7 +70,7 @@ export async function findSongDuplicates(
       artist: relatedArtist || null,
       slug: row.slug,
       similarity: titleArtistDuplicate ? 1 : contentSimilarity,
-      reason: titleArtistDuplicate || noArtistButSameSong ? 'title_artist' : 'content'
+      reason: titleArtistDuplicate ? 'title_artist' : 'content'
     });
   }
 
