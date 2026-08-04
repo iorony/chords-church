@@ -390,6 +390,52 @@ tr {
   }
 }
 
+/* Home */
+.home-shell { @apply space-y-20 pb-8 sm:space-y-24; }
+.home-hero { @apply grid items-center gap-12 py-8 sm:py-14 lg:grid-cols-[1.05fr_.95fr] lg:gap-20 lg:py-20; }
+.home-hero-copy h1 { @apply mt-4 text-4xl font-black leading-[1.03] tracking-[-.045em] text-gray-950 sm:text-5xl lg:text-6xl dark:text-white; }
+.home-hero-copy h1 span { @apply text-primary dark:text-accent-teal; }
+.home-lead { @apply mt-6 max-w-xl text-base leading-7 text-gray-600 sm:text-lg dark:text-gray-300; }
+.home-actions { @apply mt-8 flex flex-col gap-3 sm:flex-row; }
+.home-helper { @apply mt-4 text-xs font-medium text-gray-400; }
+.home-demo { @apply relative overflow-hidden rounded-[2rem] border border-gray-200 bg-white p-5 shadow-[0_30px_80px_rgba(30,58,138,.16)] sm:p-7 dark:border-gray-700 dark:bg-gray-900; transform: rotate(1.5deg); }
+.home-demo::before { content: ''; @apply absolute -right-20 -top-20 h-48 w-48 rounded-full bg-accent-gold/15 blur-2xl; }
+.home-demo-top { @apply relative flex items-center gap-3 border-b border-gray-100 pb-5 dark:border-gray-800; }
+.home-demo-mark { @apply grid h-11 w-11 place-items-center rounded-2xl bg-primary text-xl text-white dark:bg-accent-teal dark:text-gray-950; }
+.home-demo-top div { @apply flex min-w-0 flex-1 flex-col; }
+.home-demo-top strong { @apply truncate text-base text-gray-950 dark:text-white; }
+.home-demo-top small { @apply text-xs text-gray-400; }
+.home-key { @apply rounded-full bg-accent-gold/15 px-3 py-1 text-xs font-bold text-amber-800 dark:text-amber-300; }
+.home-song-lines { @apply space-y-2 py-8 font-mono text-sm sm:text-base; }
+.home-song-lines p { @apply flex min-h-6 gap-12 text-gray-700 dark:text-gray-200; }
+.home-song-lines p:nth-child(odd) { @apply text-xs text-chord; }
+.home-demo-bottom { @apply flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3 text-xs text-gray-500 dark:bg-gray-800/70 dark:text-gray-300; }
+.home-demo-bottom > span:not(.home-demo-spacer) { @apply grid min-h-7 min-w-7 place-items-center rounded-lg bg-white shadow-sm dark:bg-gray-700; }
+.home-demo-spacer { @apply flex-1; }
+.home-features { @apply grid gap-8 lg:grid-cols-[.7fr_1.3fr] lg:gap-14; }
+.home-features h2, .home-recent h2 { @apply mt-2 text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white; }
+.home-feature-grid { @apply grid gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-3 dark:border-gray-800 dark:bg-gray-800; }
+.home-feature-grid article { @apply bg-white p-6 dark:bg-gray-900; }
+.home-feature-grid article > span { @apply text-xs font-black text-accent-gold; }
+.home-feature-grid h3 { @apply mt-7 font-bold text-gray-950 dark:text-white; }
+.home-feature-grid p { @apply mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400; }
+.home-section-heading { @apply mb-7 flex items-end justify-between gap-5; }
+.home-section-heading > a { @apply hidden text-sm font-bold text-primary hover:text-primary-light sm:block dark:text-accent-teal; }
+.home-song-grid { @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-3; }
+.home-song-grid > a { @apply flex items-center gap-3 rounded-2xl border border-gray-200/80 bg-white/80 p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-accent-teal/40; }
+.home-song-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 font-bold text-primary dark:bg-accent-teal/10 dark:text-accent-teal; }
+.home-song-grid a > span:nth-child(2) { @apply flex min-w-0 flex-1 flex-col; }
+.home-song-grid strong { @apply truncate text-sm text-gray-950 dark:text-white; }
+.home-song-grid small { @apply truncate text-xs text-gray-400; }
+.home-song-grid em { @apply not-italic rounded-lg bg-gray-100 px-2 py-1 text-xs font-bold text-gray-500 dark:bg-gray-800 dark:text-gray-300; }
+.home-empty { @apply flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-300 bg-white/50 p-8 text-center sm:flex-row sm:text-left dark:border-gray-700 dark:bg-gray-900/40; }
+.home-empty > span { @apply text-3xl text-primary/50 dark:text-accent-teal/60; }
+.home-empty > div { @apply flex-1; }
+.home-empty h3 { @apply font-bold text-gray-950 dark:text-white; }
+.home-empty p { @apply mt-1 text-sm text-gray-500; }
+
+@media (max-width: 639px) { .home-demo { transform: none; } }
+
 /* =========================
    UI system — shared styles
    ========================= */

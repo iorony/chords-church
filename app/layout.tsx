@@ -87,7 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/aviso-legal">Aviso legal</Link><Link href="/terminos">Términos</Link><Link href="/privacidad">Privacidad</Link><Link href="/derechos-de-autor">Derechos de autor</Link><Link href="/licencias">Licencias</Link><Link href="/contacto">Contacto</Link>
               </nav>
             </div>
-            <p className="mt-4 text-center text-[11px] md:text-left">La información publicada no sustituye asesoría jurídica profesional.</p>
+            <p className="mt-4 text-center text-[11px] md:text-left">Las letras y los acordes pertenecen a sus respectivos autores y titulares de derechos.</p>
           </div>
         </footer>
       </body>

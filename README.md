@@ -83,7 +83,9 @@ contenido de:
     fusionar canciones duplicadas: selecciona 2 o más en la tabla, marca
     cuál se conserva como canónica, y reasigna listas, favoritos,
     propuestas, reportes y versiones antes de archivar las demás.
-11. `supabase/migrations/0016_song_version_history.sql` — activa el
+11. `supabase/migrations/0016_duplicate_detection_requires_same_artist.sql` — refuerza la
+    detección de duplicados para evitar coincidencias incorrectas entre artistas distintos.
+12. `supabase/migrations/0017_song_version_history.sql` — activa el
     historial de versiones: cada vez que el autor o un moderador guarda
     cambios (o crea la canción) se registra una versión nueva en
     `song_versions`, visible en "Ver historial" desde cada canción, con
