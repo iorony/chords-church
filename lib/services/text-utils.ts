@@ -76,7 +76,7 @@ export function toProperName(input: string): string {
       // Así, títulos como "Fiesta EN EL Desierto" quedan como
       // "Fiesta en el Desierto", en lugar de conservar EN/EL en mayúsculas.
       if (index > 0 && NAME_CONNECTORS.has(normalized)) return normalized;
-      if (/^[A-ZÁÉÍÓÚÜÑ]{2,4}$/.test(plain)) return word;
+      if (/^[A-ZÁÉÍÓÚÜÑ]{2}$/.test(plain) || /^(MCI|IHOP)$/.test(plain)) return word;
 
       return word
         .split(/([-'’])/g)

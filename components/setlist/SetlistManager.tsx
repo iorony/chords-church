@@ -35,24 +35,14 @@ export interface SetlistManagerProps {
   favoriteSongs: FavoriteSong[];
   searchableSongs: SearchableSong[];
   canEdit: boolean;
-  initialStatus: 'draft' | 'confirmed' | 'finished' | 'archived';
 }
 
-function statusLabel(status: SetlistManagerProps['initialStatus']) {
-  if (status === 'confirmed') return 'Confirmada';
-  if (status === 'finished') return 'Finalizada';
-  if (status === 'archived') return 'Archivada';
-  return 'Borrador';
-}
-
-export default function SetlistManager({ setlistId, setlistName, initialStatus, initialItems, favoriteSongs, searchableSongs, canEdit }: SetlistManagerProps) {
+export default function SetlistManager({ setlistId, setlistName, initialItems, favoriteSongs, searchableSongs, canEdit }: SetlistManagerProps) {
   const supabase = createClient();
   const pendingSavePromises = useRef<Map<string, Promise<boolean>>>(new Map());
   const [items, setItems] = useState(initialItems);
   const [searchTerm, setSearchTerm] = useState('');
   const [exporting, setExporting] = useState<'pdf' | 'docx' | null>(null);
-  const [status, setStatus] = useState(initialStatus);
-  const [savingStatus, setSavingStatus] = useState(false);
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
   const [pendingKeys, setPendingKeys] = useState<Record<string, string>>(() =>
     Object.fromEntries(initialItems.map((item) => [item.id, item.selected_key || item.songs.detected_key || item.songs.original_key || 'C']))
@@ -178,18 +168,6 @@ export default function SetlistManager({ setlistId, setlistName, initialStatus, 
     window.location.assign(`/listas/${setlistId}/presentar?updated=${Date.now()}`);
   }
 
-  async function confirmSetlist() {
-    setSavingStatus(true);
-    setSaveError(null);
-    const { error } = await supabase.from('setlists').update({ status: 'confirmed' }).eq('id', setlistId);
-    setSavingStatus(false);
-    if (error) {
-      setSaveError('No se pudo confirmar la lista.');
-      return;
-    }
-    setStatus('confirmed');
-  }
-
   async function move(index: number, direction: -1 | 1) {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= items.length) return;
@@ -234,7 +212,7 @@ export default function SetlistManager({ setlistId, setlistName, initialStatus, 
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-950 sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           <button onClick={openPresentation} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-primary-light">
             <span aria-hidden="true">▶</span> Presentar
           </button>
@@ -244,15 +222,6 @@ export default function SetlistManager({ setlistId, setlistName, initialStatus, 
           <button onClick={() => handleExport('docx')} disabled={exporting !== null} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 font-semibold transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-gray-700">
             <span aria-hidden="true">W</span> {exporting === 'docx' ? 'Generando...' : 'Descargar DOCX'}
           </button>
-          {canEdit && status === 'draft' ? (
-            <button onClick={confirmSetlist} disabled={savingStatus} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-accent-teal px-4 py-3 font-semibold text-accent-teal transition hover:bg-accent-teal hover:text-white disabled:opacity-50">
-              {savingStatus ? 'Confirmando...' : 'Confirmar lista'}
-            </button>
-          ) : (
-            <div className="flex min-h-12 items-center justify-center rounded-xl bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-              Estado: {statusLabel(status)}
-            </div>
-          )}
         </div>
       </section>
 

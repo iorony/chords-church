@@ -121,7 +121,7 @@ export default function NewSetlistForm() {
           </div>
 
           <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
-            La lista se creará como <strong>privada y confirmada</strong>. Luego podrás agregar canciones y compartirla según los permisos disponibles.
+            La lista se creará como <strong>privada y lista para usar</strong>. Luego podrás agregar canciones y compartirla con otros usuarios.
           </div>
 
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">

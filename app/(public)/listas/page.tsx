@@ -2,20 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-function statusLabel(status: string) {
-  if (status === 'confirmed') return 'Confirmada';
-  if (status === 'finished') return 'Finalizada';
-  if (status === 'archived') return 'Archivada';
-  return 'Borrador';
-}
-
-function statusClasses(status: string) {
-  if (status === 'confirmed') return 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900';
-  if (status === 'finished') return 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900';
-  if (status === 'archived') return 'bg-gray-100 text-gray-600 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700';
-  return 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900';
-}
-
 function formatDate(value: string | null) {
   if (!value) return 'Sin fecha definida';
   return new Intl.DateTimeFormat('es-GT', {
@@ -33,13 +19,21 @@ export default async function SetlistsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/listas');
 
+  const { data: memberships } = await supabase
+    .from('setlist_members')
+    .select('setlist_id, permission')
+    .eq('user_id', user.id);
+  const sharedIds = (memberships || []).map((membership: any) => membership.setlist_id);
+  const ownershipFilter = sharedIds.length > 0
+    ? `owner_id.eq.${user.id},id.in.(${sharedIds.join(',')})`
+    : `owner_id.eq.${user.id}`;
   const { data: setlists } = await supabase
     .from('setlists')
-    .select('id, name, event_date, location, status, visibility, setlist_items(count)')
-    .eq('owner_id', user.id)
+    .select('id, owner_id, name, event_date, location, visibility, setlist_items(count)')
+    .or(ownershipFilter)
     .order('created_at', { ascending: false });
+  const permissionByList = new Map((memberships || []).map((membership: any) => [membership.setlist_id, membership.permission]));
 
-  const confirmedCount = (setlists || []).filter((item: any) => item.status === 'confirmed').length;
   const totalSongs = (setlists || []).reduce((total: number, item: any) => total + Number(item.setlist_items?.[0]?.count || 0), 0);
 
   return (
@@ -65,14 +59,10 @@ export default async function SetlistsPage() {
           </Link>
         </div>
 
-        <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-lg sm:gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:max-w-sm sm:gap-3">
           <div className="rounded-xl border border-gray-200/80 bg-white/70 p-3 dark:border-gray-800 dark:bg-gray-900/60">
             <div className="text-xl font-bold">{setlists?.length || 0}</div>
             <div className="text-xs text-gray-500">Listas</div>
-          </div>
-          <div className="rounded-xl border border-gray-200/80 bg-white/70 p-3 dark:border-gray-800 dark:bg-gray-900/60">
-            <div className="text-xl font-bold">{confirmedCount}</div>
-            <div className="text-xs text-gray-500">Confirmadas</div>
           </div>
           <div className="rounded-xl border border-gray-200/80 bg-white/70 p-3 dark:border-gray-800 dark:bg-gray-900/60">
             <div className="text-xl font-bold">{totalSongs}</div>
@@ -97,13 +87,15 @@ export default async function SetlistsPage() {
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Tus repertorios</h2>
-              <p className="text-sm text-gray-500">Las listas más recientes aparecen primero.</p>
+              <p className="text-sm text-gray-500">Incluye tus listas y las que otros usuarios compartieron contigo.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {setlists.map((setlist: any) => {
               const songCount = Number(setlist.setlist_items?.[0]?.count || 0);
+              const isShared = setlist.owner_id !== user.id;
+              const sharedPermission = permissionByList.get(setlist.id);
               return (
                 <Link
                   key={setlist.id}
@@ -116,9 +108,7 @@ export default async function SetlistsPage() {
                       <h3 className="truncate text-lg font-semibold group-hover:text-primary">{setlist.name}</h3>
                       <p className="mt-1 text-sm text-gray-500">{formatDate(setlist.event_date)}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusClasses(setlist.status)}`}>
-                      {statusLabel(setlist.status)}
-                    </span>
+                    {isShared && <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900">{sharedPermission === 'edit' ? 'Compartida · edición' : 'Compartida · lectura'}</span>}
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-2 text-sm">
@@ -133,7 +123,7 @@ export default async function SetlistsPage() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 text-sm dark:border-gray-800">
-                    <span className="text-gray-500">{setlist.visibility === 'public' ? 'Pública' : 'Privada'}</span>
+                    <span className="text-gray-500">{isShared ? 'Compartida contigo' : setlist.visibility === 'public' ? 'Pública' : setlist.visibility === 'link_only' ? 'Solo con enlace' : 'Privada'}</span>
                     <span className="font-semibold text-primary transition group-hover:translate-x-1">Abrir →</span>
                   </div>
                 </Link>

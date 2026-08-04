@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import SetlistManager from '@/components/setlist/SetlistManager';
+import SetlistSettings from '@/components/setlist/SetlistSettings';
 
 function formatDate(value: string | null) {
   if (!value) return null;
@@ -32,6 +33,15 @@ export default async function SetlistDetailPage({ params }: { params: { id: stri
     .maybeSingle();
 
   const canEdit = setlist.owner_id === user.id || member?.permission === 'edit';
+  const isOwner = setlist.owner_id === user.id;
+
+  const { data: members } = isOwner
+    ? await supabase
+        .from('setlist_members')
+        .select('user_id, permission, profiles(display_name)')
+        .eq('setlist_id', params.id)
+        .order('added_at', { ascending: true })
+    : { data: [] };
 
   const { data: items } = await supabase
     .from('setlist_items')
@@ -79,12 +89,22 @@ export default async function SetlistDetailPage({ params }: { params: { id: stri
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap gap-2">
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:text-blue-300">
-                {setlist.status === 'confirmed' ? 'Lista confirmada' : setlist.status === 'finished' ? 'Lista finalizada' : setlist.status === 'archived' ? 'Lista archivada' : 'Borrador'}
-              </span>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                 {setlist.visibility === 'public' ? 'Pública' : 'Privada'}
               </span>
+              {(canEdit || isOwner) && (
+                <SetlistSettings
+                  setlistId={setlist.id}
+                  initialName={setlist.name}
+                  initialDescription={setlist.description}
+                  initialEventDate={setlist.event_date}
+                  initialLocation={setlist.location}
+                  initialVisibility={setlist.visibility}
+                  canEdit={canEdit}
+                  isOwner={isOwner}
+                  initialMembers={(members as any) || []}
+                />
+              )}
             </div>
             <h1 className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{setlist.name}</h1>
             <div className="mt-3 flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-5">
@@ -104,7 +124,6 @@ export default async function SetlistDetailPage({ params }: { params: { id: stri
       <SetlistManager
         setlistId={setlist.id}
         setlistName={setlist.name}
-        initialStatus={setlist.status}
         initialItems={(items as any) || []}
         favoriteSongs={favoriteSongs as any}
         searchableSongs={searchableSongs as any}
