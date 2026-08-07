@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ChordChart from './ChordChart';
 import KeyControl from './KeyControl';
+import YouTubePreview from './YouTubePreview';
 
 export interface SongDetailClientProps {
   songId: string;
@@ -12,6 +13,7 @@ export interface SongDetailClientProps {
   artistName?: string;
   originalKey: string;
   content: string;
+  sourceUrl?: string | null;
   isFavorite: boolean;
   isLoggedIn: boolean;
   status: string;
@@ -26,6 +28,7 @@ export default function SongDetailClient({
   artistName,
   originalKey,
   content,
+  sourceUrl,
   isFavorite: initialFavorite,
   isLoggedIn,
   status: initialStatus,
@@ -42,6 +45,7 @@ export default function SongDetailClient({
   const [visibility, setVisibility] = useState<'public' | 'private'>(initialVisibility);
   const [publishing, setPublishing] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
+  const [videoExpanded, setVideoExpanded] = useState(false);
 
   async function toggleFavorite() {
     if (!isLoggedIn) return;
@@ -221,7 +225,7 @@ export default function SongDetailClient({
         )}
       </section>
 
-      <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white/40 dark:bg-white/[0.02] p-3">
+      <section className="rounded-xl border border-gray-200 bg-white/40 p-3 dark:border-gray-800 dark:bg-white/[0.02]">
         <KeyControl
           originalKey={originalKey}
           originalContent={content}
@@ -232,9 +236,49 @@ export default function SongDetailClient({
         />
       </section>
 
-      <section className="border border-gray-200 dark:border-gray-800 rounded-xl p-5 overflow-x-auto bg-white/40 dark:bg-white/[0.02]">
-        <ChordChart content={displayContent} />
+      <section className="relative overflow-x-auto rounded-xl border border-gray-200 bg-white/40 p-5 dark:border-gray-800 dark:bg-white/[0.02]">
+        {sourceUrl && (
+          <div className="absolute right-4 top-4 hidden w-60 sm:block">
+            <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+              <span className="font-semibold text-gray-500">Video de referencia</span>
+              <button type="button" onClick={() => setVideoExpanded(true)} className="font-medium text-primary hover:underline">Ampliar</button>
+            </div>
+            <YouTubePreview url={sourceUrl} title={`Video de referencia de ${title}`} />
+          </div>
+        )}
+        <div className={sourceUrl ? 'sm:pr-64' : undefined}>
+          <ChordChart content={displayContent} />
+        </div>
       </section>
+
+      {sourceUrl && (
+        <section className="rounded-xl border border-gray-200 bg-white/40 p-4 dark:border-gray-800 dark:bg-white/[0.02] sm:hidden">
+          <div className="mx-auto mb-3 flex max-w-4xl items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Video de referencia</h2>
+            <div className="flex items-center gap-3 text-xs font-medium">
+              <button type="button" onClick={() => setVideoExpanded((value) => !value)} className="text-primary hover:underline">
+                {videoExpanded ? 'Vista compacta' : 'Ver más grande'}
+              </button>
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">YouTube ↗</a>
+            </div>
+          </div>
+          <div className={`mx-auto w-full transition-[max-width] duration-300 ${videoExpanded ? 'max-w-4xl' : 'max-w-lg'}`}>
+            <YouTubePreview url={sourceUrl} title={`Video de referencia de ${title}`} />
+          </div>
+        </section>
+      )}
+
+      {sourceUrl && videoExpanded && (
+        <div className="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 p-6 backdrop-blur-sm sm:flex" role="dialog" aria-modal="true" aria-label={`Video de referencia de ${title}`} onClick={() => setVideoExpanded(false)}>
+          <div className="w-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between text-white">
+              <h2 className="font-semibold">Video de referencia · {title}</h2>
+              <button type="button" onClick={() => setVideoExpanded(false)} className="rounded-lg border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10">Cerrar ✕</button>
+            </div>
+            <YouTubePreview url={sourceUrl} title={`Video de referencia ampliado de ${title}`} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

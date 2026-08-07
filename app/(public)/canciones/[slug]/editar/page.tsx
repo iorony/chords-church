@@ -15,7 +15,7 @@ export default async function EditSongPage({ params }: { params: { slug: string 
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: song } = await supabase.from('songs').select('*, artists(name)').eq('id', songId).single();
+  const { data: song } = await supabase.from('songs').select('*, artists(name), song_sources(source_url)').eq('id', songId).single();
   if (!song) notFound();
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -34,6 +34,7 @@ export default async function EditSongPage({ params }: { params: { slug: string 
       initialTitle={song.title}
       initialArtistName={(song as any).artists?.name || ''}
       initialKey={song.detected_key || song.original_key || ''}
+      initialSourceUrl={song.source_url || (song as any).song_sources?.find((source: any) => source.source_url)?.source_url || ''}
       initialVisibility={song.visibility === 'private' ? 'private' : 'public'}
       canSetPrivate={canSetPrivate}
     />

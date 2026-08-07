@@ -10,7 +10,7 @@ export default async function SongDetailPage({ params }: { params: { slug: strin
 
   let songQuery = supabase
     .from('songs')
-    .select('*, artists(name)')
+    .select('*, artists(name), song_sources(source_url)')
     .eq('is_deleted', false);
 
   songQuery = isUuid
@@ -59,6 +59,7 @@ export default async function SongDetailPage({ params }: { params: { slug: strin
         artistName={(song as any).artists?.name}
         originalKey={song.detected_key || song.original_key || 'C'}
         content={song.content}
+        sourceUrl={song.source_url || (song as any).song_sources?.find((source: any) => source.source_url)?.source_url || null}
         isFavorite={isFavorite}
         isLoggedIn={!!user}
         status={song.status}

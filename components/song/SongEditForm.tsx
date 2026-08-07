@@ -8,6 +8,8 @@ import { renderSections } from '@/lib/chords/structure-parser';
 import type { AiReviewResponse } from '@/lib/ai/schema';
 import ChordChart from './ChordChart';
 import { toProperName, toProperTitle } from '@/lib/services/text-utils';
+import YouTubePreview from './YouTubePreview';
+import { getYouTubeVideoId } from '@/lib/services/youtube';
 
 export interface SongEditFormProps {
   songId: string;
@@ -17,6 +19,7 @@ export interface SongEditFormProps {
   initialTitle: string;
   initialArtistName: string;
   initialKey: string;
+  initialSourceUrl: string;
   initialVisibility: 'public' | 'private';
   canSetPrivate: boolean;
 }
@@ -37,6 +40,7 @@ export default function SongEditForm({
   initialTitle,
   initialArtistName,
   initialKey,
+  initialSourceUrl,
   initialVisibility,
   canSetPrivate
 }: SongEditFormProps) {
@@ -46,6 +50,7 @@ export default function SongEditForm({
   const [title, setTitle] = useState(initialTitle);
   const [artistName, setArtistName] = useState(initialArtistName);
   const [keyInput, setKeyInput] = useState(initialKey);
+  const [sourceUrl, setSourceUrl] = useState(initialSourceUrl);
   const [visibility, setVisibility] = useState<'public' | 'private'>(initialVisibility);
   const [changeSummary, setChangeSummary] = useState('');
   const [saving, setSaving] = useState(false);
@@ -124,6 +129,12 @@ export default function SongEditForm({
       return;
     }
 
+    if (sourceUrl.trim() && !getYouTubeVideoId(sourceUrl)) {
+      setError('El enlace de referencia debe ser un video válido de YouTube.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const normalizedTitle = toProperTitle(title);
       const normalizedArtist = toProperName(artistName);
@@ -151,7 +162,7 @@ export default function SongEditForm({
 
       const artistId = await resolveArtistId(normalizedArtist);
       const finalKey = keyInput.trim() || null;
-      const metadataPayload: Record<string, unknown> = { title: normalizedTitle, artist_id: artistId, visibility };
+      const metadataPayload: Record<string, unknown> = { title: normalizedTitle, artist_id: artistId, visibility, source_url: sourceUrl.trim() || null };
       setTitle(normalizedTitle);
       setArtistName(normalizedArtist);
 
@@ -275,6 +286,12 @@ export default function SongEditForm({
               placeholder="Ej: G, Bm, F#, Eb"
               className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2 font-mono"
             />
+          </div>
+          <div className="space-y-2 md:col-span-12">
+            <label htmlFor="youtube-source" className="block text-sm font-medium">Video de referencia de YouTube <span className="font-normal text-gray-400">(opcional)</span></label>
+            <input id="youtube-source" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700" />
+            {sourceUrl.trim() && !getYouTubeVideoId(sourceUrl) && <p className="text-xs text-danger">Ingresa un enlace válido de YouTube.</p>}
+            <div className="max-w-2xl"><YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} /></div>
           </div>
           </div>
         </section>

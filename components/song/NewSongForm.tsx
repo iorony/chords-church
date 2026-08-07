@@ -10,6 +10,8 @@ import ChordChart from './ChordChart';
 import type { AiReviewResponse } from '@/lib/ai/schema';
 import { normalizeText, toProperName, toProperTitle } from '@/lib/services/text-utils';
 import AsyncProgress from '@/components/ui/AsyncProgress';
+import YouTubePreview from './YouTubePreview';
+import { getYouTubeVideoId } from '@/lib/services/youtube';
 
 type Step = 'form' | 'reviewing' | 'compare';
 type ReviewMode = 'ai' | 'local';
@@ -22,6 +24,7 @@ export default function NewSongForm() {
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [content, setContent] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reviewMode, setReviewMode] = useState<ReviewMode>('ai');
@@ -417,6 +420,10 @@ export default function NewSongForm() {
   }
 
   async function handleSave(publish: boolean) {
+    if (sourceUrl.trim() && !getYouTubeVideoId(sourceUrl)) {
+      setError('El enlace de referencia debe ser un video válido de YouTube.');
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -487,6 +494,7 @@ export default function NewSongForm() {
         visibility,
         status: publish ? 'published' : 'draft',
         source_type: reviewMode === 'ai' ? 'ai_structured' : 'manual',
+        source_url: sourceUrl.trim() || null,
         created_by: user.id,
         published_at: publish ? new Date().toISOString() : null
       })
@@ -505,6 +513,16 @@ export default function NewSongForm() {
           : 'No se pudo guardar la canción. Verifica los datos e intenta de nuevo.'
       );
       return;
+    }
+
+    if (sourceUrl.trim()) {
+      const { error: sourceError } = await supabase.from('song_sources').insert({
+        song_id: song.id,
+        source_name: 'YouTube',
+        source_url: sourceUrl.trim(),
+        imported: false
+      });
+      if (sourceError) console.error('No se pudo registrar la referencia de YouTube:', sourceError);
     }
 
     // Registra la versión 1 en el historial (no bloquea la navegación si falla)
@@ -603,6 +621,19 @@ export default function NewSongForm() {
           </div>
         </div>
         {checkingDuplicate && <p className="text-xs text-gray-500">Comprobando si la canción ya existe...</p>}
+        <div className="space-y-2">
+          <label htmlFor="youtube-source" className="block text-sm">Video de referencia de YouTube <span className="text-xs text-gray-500">(opcional)</span></label>
+          <input
+            id="youtube-source"
+            type="url"
+            value={sourceUrl}
+            onChange={(event) => setSourceUrl(event.target.value)}
+            placeholder="https://www.youtube.com/watch?v=..."
+            className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700"
+          />
+          {sourceUrl.trim() && !getYouTubeVideoId(sourceUrl) && <p className="text-xs text-danger">Ingresa un enlace válido de YouTube.</p>}
+          <YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} />
+        </div>
         <div>
           <label className="block text-sm mb-1">Letra con o sin acordes <span className="text-danger">*</span></label>
           <textarea
