@@ -179,7 +179,7 @@ export default function SongEditForm({
       });
       if (versionError) throw versionError;
 
-      router.push(`/canciones/${slug}`);
+      window.location.assign(`/canciones/${slug}?updated=${Date.now()}`);
     } catch (err: any) {
       console.error('Error guardando la canción:', err);
       setError(`No se pudo guardar: ${err?.message || 'error desconocido'}`);
@@ -289,9 +289,13 @@ export default function SongEditForm({
           </div>
           <div className="space-y-2 md:col-span-12">
             <label htmlFor="youtube-source" className="block text-sm font-medium">Video de referencia de YouTube <span className="font-normal text-gray-400">(opcional)</span></label>
-            <input id="youtube-source" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700" />
-            {sourceUrl.trim() && !getYouTubeVideoId(sourceUrl) && <p className="text-xs text-danger">Ingresa un enlace válido de YouTube.</p>}
-            <div className="max-w-2xl"><YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} /></div>
+            <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_15rem]">
+              <div className="min-w-0">
+                <input id="youtube-source" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=..." className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700" />
+                {sourceUrl.trim() && !getYouTubeVideoId(sourceUrl) && <p className="mt-1 text-xs text-danger">Ingresa un enlace válido de YouTube.</p>}
+              </div>
+              <YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} />
+            </div>
           </div>
           </div>
         </section>

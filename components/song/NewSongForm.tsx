@@ -623,25 +623,30 @@ export default function NewSongForm() {
         {checkingDuplicate && <p className="text-xs text-gray-500">Comprobando si la canción ya existe...</p>}
         <div className="space-y-2">
           <label htmlFor="youtube-source" className="block text-sm">Video de referencia de YouTube <span className="text-xs text-gray-500">(opcional)</span></label>
-          <input
-            id="youtube-source"
-            type="url"
-            value={sourceUrl}
-            onChange={(event) => setSourceUrl(event.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700"
-          />
-          {sourceUrl.trim() && !getYouTubeVideoId(sourceUrl) && <p className="text-xs text-danger">Ingresa un enlace válido de YouTube.</p>}
-          <YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} />
+          <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_15rem]">
+            <div className="min-w-0">
+              <input
+                id="youtube-source"
+                type="url"
+                value={sourceUrl}
+                onChange={(event) => setSourceUrl(event.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700"
+              />
+              {sourceUrl.trim() && !getYouTubeVideoId(sourceUrl) && <p className="mt-1 text-xs text-danger">Ingresa un enlace válido de YouTube.</p>}
+            </div>
+            <YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} />
+          </div>
         </div>
         <div>
-          <label className="block text-sm mb-1">Letra con o sin acordes <span className="text-danger">*</span></label>
+          <label className="block text-sm mb-1">Letra con acordes de la canción <span className="text-danger">*</span></label>
+          <p className="mb-1.5 text-xs text-gray-500">La IA organizará las secciones y conservará los acordes incluidos.</p>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={14}
             className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2 font-mono text-sm"
-            placeholder={'G        D\nGrande eres Dios\nEm             C\nTu amor nunca fallará'}
+            placeholder={'Escribe o pega aquí la letra de la canción...'}
           />
         </div>
         <fieldset className="border border-gray-200 dark:border-gray-800 rounded-lg p-3">
