@@ -56,7 +56,9 @@ export default function SetlistManager({ setlistId, setlistName, initialItems, f
   }
 
   function itemOriginalKey(item: SetlistItem): string {
-    return item.songs.original_key || item.songs.detected_key || 'C';
+    // `detected_key` is the editable/current key of the song. `original_key`
+    // is retained as legacy metadata, so it must only be used as a fallback.
+    return item.songs.detected_key || item.songs.original_key || 'C';
   }
 
   function currentItemKey(item: SetlistItem): string {

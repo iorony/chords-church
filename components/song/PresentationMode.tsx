@@ -23,6 +23,7 @@ export interface PresentationModeProps {
 type SectionPage = SongSection[][];
 
 const MIN_FONT_REM = 0.42;
+const FIT_MIN_FONT_REM = 0.16;
 const MAX_FONT_REM = 4;
 
 function visualLineLength(line: string): number {
@@ -43,13 +44,11 @@ function longestSectionLine(sections: SongSection[]): number {
 function estimateSectionLines(section: SongSection): number {
   const lines = section.content.split('\n');
   const contentLines = Math.max(1, lines.length);
-  const blankLines = lines.filter((line) => line.trim() === '').length;
 
-  // El navegador añade altura real por el encabezado, el gap entre secciones,
-  // líneas vacías y redondeos de píxeles. Antes se calculaba demasiado justo y
-  // la última sección podía quedar cortada. Este margen conservador hace que
-  // la sección completa pase a la siguiente columna antes de desbordarse.
-  return contentLines + 3.4 + blankLines * 0.35;
+  // El contenido ya incluye las líneas vacías. Sumamos únicamente el
+  // encabezado y el espacio entre secciones para aprovechar la columna sin
+  // cortar una sección entre dos columnas.
+  return contentLines + 1.8;
 }
 
 function maxColumnCount(width: number): number {
@@ -83,7 +82,7 @@ function widthFittedFontRem(
 
   // Source Code Pro/monoespaciada ocupa aproximadamente 0.61em por carácter.
   const widthFitRem = safeColumnWidth / (Math.max(longestLine, 1) * 0.61 * 16);
-  return Math.min(requestedFontRem, Math.max(MIN_FONT_REM, widthFitRem));
+  return Math.min(requestedFontRem, Math.max(FIT_MIN_FONT_REM, widthFitRem));
 }
 
 function packSectionsInColumns(
@@ -114,47 +113,12 @@ function packSectionsInColumns(
   return { fits: true, page };
 }
 
-function buildMultiPageLayout(
-  sections: SongSection[],
-  columns: number,
-  capacity: number
-): SectionPage[] {
-  const pages: SectionPage[] = [];
-  let page: SectionPage = Array.from({ length: columns }, () => []);
-  let columnIndex = 0;
-  let used = 0;
-
-  const flushPage = () => {
-    if (page.some((column) => column.length > 0)) pages.push(page);
-    page = Array.from({ length: columns }, () => []);
-    columnIndex = 0;
-    used = 0;
-  };
-
-  for (const section of sections) {
-    const sectionSize = estimateSectionLines(section);
-
-    if (page[columnIndex].length > 0 && used + sectionSize > capacity) {
-      columnIndex += 1;
-      used = 0;
-    }
-
-    if (columnIndex >= columns) flushPage();
-
-    page[columnIndex].push(section);
-    used += sectionSize;
-  }
-
-  flushPage();
-  return pages;
-}
-
 function buildSectionPages(
   sections: SongSection[],
   viewportWidth: number,
   viewportHeight: number,
   requestedFontRem: number,
-  preserveRequestedFont = false
+  _preserveRequestedFont = false
 ): { pages: SectionPage[]; fontRem: number; columns: number } {
   const maxColumns = maxColumnCount(viewportWidth);
   const reservedHeight = viewportWidth < 700 ? 132 : 142;
@@ -167,40 +131,12 @@ function buildSectionPages(
     return { pages: [[[]]], fontRem: requested, columns: 1 };
   }
 
-  // Cuando el usuario cambia manualmente el tamaño, respetamos ese tamaño.
-  // Primero intentamos acomodar la canción en una página aumentando columnas;
-  // si ya no cabe, conservamos el tamaño solicitado y creamos páginas.
-  if (preserveRequestedFont) {
-    for (let columns = 1; columns <= maxColumns; columns += 1) {
-      const fittedFont = widthFittedFontRem(sections, viewportWidth, columns, requested);
-      const fontPx = fittedFont * 16;
-      const capacity = availableHeight / (fontPx * (viewportWidth < 700 ? 1.34 : 1.45));
-      const packed = packSectionsInColumns(sections, columns, capacity);
-
-      if (packed.fits) {
-        return { pages: [packed.page], fontRem: fittedFont, columns };
-      }
-    }
-
-    const columns = maxColumns;
-    const fontRem = widthFittedFontRem(sections, viewportWidth, columns, requested);
-    const fontPx = fontRem * 16;
-    const capacity = availableHeight / (fontPx * (viewportWidth < 700 ? 1.34 : 1.45));
-    const pages = buildMultiPageLayout(sections, columns, capacity);
-
-    return {
-      pages: pages.length ? pages : [Array.from({ length: columns }, () => [])],
-      fontRem,
-      columns
-    };
-  }
-
   // Prioridad de diseño:
   // 1) usar una sola columna si toda la canción cabe;
   // 2) agregar únicamente las columnas necesarias;
-  // 3) reducir el texto gradualmente solo cuando ni las columnas bastan;
-  // 4) crear páginas adicionales únicamente como último recurso.
-  for (let fontRem = requested; fontRem >= MIN_FONT_REM; fontRem = Number((fontRem - 0.04).toFixed(2))) {
+  // 3) reducir el texto gradualmente solo cuando ni las columnas bastan.
+  // Cada canción siempre se devuelve como una única página.
+  for (let fontRem = requested; fontRem >= FIT_MIN_FONT_REM; fontRem = Number((fontRem - 0.02).toFixed(2))) {
     for (let columns = 1; columns <= maxColumns; columns += 1) {
       const fittedFont = widthFittedFontRem(sections, viewportWidth, columns, fontRem);
 
@@ -222,21 +158,31 @@ function buildSectionPages(
     }
   }
 
-  // Último recurso para canciones excepcionalmente largas: usamos el máximo
-  // número de columnas, el tamaño mínimo y paginamos sin cortar secciones.
+  // Respaldo para contenido excepcionalmente largo. Conservamos todas las
+  // secciones en la misma hoja; el contenedor evita crear una página 2/2.
   const columns = maxColumns;
   const fontRem = widthFittedFontRem(
     sections,
     viewportWidth,
     columns,
-    MIN_FONT_REM
+    FIT_MIN_FONT_REM
   );
   const fontPx = fontRem * 16;
   const capacity = availableHeight / (fontPx * (viewportWidth < 700 ? 1.34 : 1.45));
-  const pages = buildMultiPageLayout(sections, columns, capacity);
+  const packed = packSectionsInColumns(sections, columns, capacity);
+  const fallbackPage: SectionPage = Array.from({ length: columns }, () => []);
+
+  if (!packed.fits) {
+    // No descartamos contenido aunque una sección extraordinariamente extensa
+    // supere por sí sola la altura estimada de la pantalla.
+    sections.forEach((section, index) => {
+      const column = Math.min(columns - 1, Math.floor(index * columns / sections.length));
+      fallbackPage[column].push(section);
+    });
+  }
 
   return {
-    pages: pages.length ? pages : [Array.from({ length: columns }, () => [])],
+    pages: [packed.fits ? packed.page : fallbackPage],
     fontRem,
     columns
   };
@@ -297,6 +243,16 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     }
     return widthFittedFontRem(sections, viewport.width, 1, fontSize);
   }, [isMobile, layout.fontRem, fontSizeManuallyAdjusted, fontSize, sections, viewport.width]);
+
+  const adjustFontSize = useCallback((delta: number) => {
+    // Partimos del tamaño que el usuario ve, no del valor solicitado que pudo
+    // haber sido reducido por el ajuste automático. Así cada clic produce un
+    // cambio inmediato incluso si localStorage guardó anteriormente un valor
+    // mucho mayor que el que cabe en esta canción.
+    const displayedFontRem = isMobile ? mobileFontRem : layout.fontRem;
+    setFontSizeManuallyAdjusted(true);
+    setFontSize(Math.min(MAX_FONT_REM, Math.max(MIN_FONT_REM, displayedFontRem + delta)));
+  }, [isMobile, mobileFontRem, layout.fontRem]);
 
   const currentPage = layout.pages[Math.min(pageIndex, layout.pages.length - 1)] ?? Array.from({ length: layout.columns }, () => []);
 
@@ -472,12 +428,10 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
           break;
         case '+':
         case '=':
-          setFontSizeManuallyAdjusted(true);
-          setFontSize((f) => Math.min(f + 0.15, MAX_FONT_REM));
+          adjustFontSize(0.15);
           break;
         case '-':
-          setFontSizeManuallyAdjusted(true);
-          setFontSize((f) => Math.max(f - 0.15, MIN_FONT_REM));
+          adjustFontSize(-0.15);
           break;
         case 'd':
         case 'D':
@@ -502,7 +456,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [nextPage, prevPage, nextSong, prevSong, router, toggleFullscreen]);
+  }, [adjustFontSize, nextPage, prevPage, nextSong, prevSong, router, toggleFullscreen]);
 
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
@@ -605,10 +559,10 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
           <button onClick={() => setShowKeyPicker((v) => !v)} className="opacity-70 hover:opacity-100">
             {currentKey} <span>(T)</span>
           </button>
-          <button onClick={() => { setFontSizeManuallyAdjusted(true); setFontSize((f) => Math.max(f - 0.15, MIN_FONT_REM)); }} aria-label="Reducir texto">
+          <button onClick={() => adjustFontSize(-0.15)} aria-label="Reducir texto">
             A−
           </button>
-          <button onClick={() => { setFontSizeManuallyAdjusted(true); setFontSize((f) => Math.min(f + 0.15, MAX_FONT_REM)); }} aria-label="Aumentar texto">
+          <button onClick={() => adjustFontSize(0.15)} aria-label="Aumentar texto">
             A+
           </button>
           <button
@@ -747,10 +701,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
           ◀
         </button>
         <button
-          onClick={() => {
-            setFontSizeManuallyAdjusted(true);
-            setFontSize((f) => Math.max(f - 0.15, MIN_FONT_REM));
-          }}
+          onClick={() => adjustFontSize(-0.15)}
           className="flex h-12 items-center justify-center rounded-xl text-base font-semibold opacity-90 active:scale-95"
           aria-label="Reducir tamaño de secciones, letra y acordes"
           title="Reducir tamaño"
@@ -758,10 +709,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
           A−
         </button>
         <button
-          onClick={() => {
-            setFontSizeManuallyAdjusted(true);
-            setFontSize((f) => Math.min(f + 0.15, MAX_FONT_REM));
-          }}
+          onClick={() => adjustFontSize(0.15)}
           className="flex h-12 items-center justify-center rounded-xl text-base font-semibold opacity-90 active:scale-95"
           aria-label="Aumentar tamaño de secciones, letra y acordes"
           title="Aumentar tamaño"
