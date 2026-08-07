@@ -231,18 +231,12 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     [sections, viewport, fontSize, fontSizeManuallyAdjusted]
   );
 
-  // En móvil cada canción se presenta como un documento continuo de una sola
-  // página. El usuario recorre toda la letra verticalmente; no se divide en
-  // columnas ni páginas internas. Cuando el tamaño fue ajustado manualmente se
-  // respeta y, si una línea excede el ancho, queda disponible el scroll
-  // horizontal en lugar de recortarla.
-  const mobileFontRem = useMemo(() => {
-    if (!isMobile) return layout.fontRem;
-    if (fontSizeManuallyAdjusted) {
-      return Math.min(MAX_FONT_REM, Math.max(MIN_FONT_REM, fontSize));
-    }
-    return widthFittedFontRem(sections, viewport.width, 1, fontSize);
-  }, [isMobile, layout.fontRem, fontSizeManuallyAdjusted, fontSize, sections, viewport.width]);
+  // En móvil el ancho manda: la canción ocupa una sola columna y nunca se
+  // sale horizontalmente de la pantalla. La altura se recorre con scroll.
+  const mobileFontRem = useMemo(
+    () => widthFittedFontRem(sections, viewport.width, 1, fontSize),
+    [sections, viewport.width, fontSize]
+  );
 
   const adjustFontSize = useCallback((delta: number) => {
     // Partimos del tamaño que el usuario ve, no del valor solicitado que pudo
@@ -622,20 +616,11 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
               <span className="absolute right-0 top-1 text-[10px] opacity-55">Página 1/1</span>
             </header>
 
-            <div
-              className="flex min-w-0 flex-col gap-[0.8em]"
-              style={{ fontSize: `${mobileFontRem}rem`, lineHeight: 1.42 }}
-            >
+            <div className="flex min-w-0 flex-col gap-[0.8em]" style={{ fontSize: `${mobileFontRem}rem`, lineHeight: 1.42 }}>
               {sections.map((section) => (
-                <section key={`${section.order}-${section.label}`} className="min-w-0">
-                  <div className="mb-[0.22em] font-mono font-semibold text-primary dark:text-accent-teal">
-                    [{section.label}]
-                  </div>
-                  <ChordChart
-                    content={section.content}
-                    fontSizeClass=""
-                    containerClassName="presentation-song-content presentation-song-content-mobile"
-                  />
+                <section key={`${section.order}-${section.label}`} className="min-w-0 max-w-full overflow-hidden">
+                  <div className={`mb-[0.22em] font-mono font-semibold ${dark ? 'text-accent-teal' : 'text-chord'}`}>[{section.label}]</div>
+                  <ChordChart content={section.content} fontSizeClass="" containerClassName={`presentation-song-content presentation-song-content-mobile ${dark ? '' : 'presentation-song-content-light'}`} />
                 </section>
               ))}
             </div>
@@ -669,10 +654,10 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
                   <div className="flex h-full min-h-0 flex-col justify-start gap-[0.55em] overflow-hidden" style={{ fontSize: `${layout.fontRem}rem`, lineHeight: 1.45 }}>
                     {column.map((section) => (
                       <section key={`${section.order}-${section.label}`} className="shrink-0 break-inside-avoid overflow-hidden">
-                        <div className="mb-[0.18em] font-mono font-semibold text-primary dark:text-accent-teal">
+                        <div className={`mb-[0.18em] font-mono font-semibold ${dark ? 'text-accent-teal' : 'text-chord'}`}>
                           [{section.label}]
                         </div>
-                        <ChordChart content={section.content} fontSizeClass="" containerClassName="presentation-song-content" />
+                        <ChordChart content={section.content} fontSizeClass="" containerClassName={`presentation-song-content ${dark ? '' : 'presentation-song-content-light'}`} />
                       </section>
                     ))}
                   </div>

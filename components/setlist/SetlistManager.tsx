@@ -219,10 +219,10 @@ export default function SetlistManager({ setlistId, setlistName, initialItems, f
             <span aria-hidden="true">▶</span> Presentar
           </button>
           <button onClick={() => handleExport('pdf')} disabled={exporting !== null} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 font-semibold transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-gray-700">
-            <span aria-hidden="true">PDF</span> {exporting === 'pdf' ? 'Generando...' : 'Descargar'}
+            {exporting === 'pdf' ? 'Generando...' : 'Descargar PDF'}
           </button>
           <button onClick={() => handleExport('docx')} disabled={exporting !== null} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 font-semibold transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-gray-700">
-            <span aria-hidden="true">W</span> {exporting === 'docx' ? 'Generando...' : 'Descargar DOCX'}
+            {exporting === 'docx' ? 'Generando...' : 'Descargar DOCX'}
           </button>
         </div>
       </section>
