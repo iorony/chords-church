@@ -1,2 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-export default async function Page(){const supabase=createServerSupabaseClient();const {data,error}=await supabase.from('legal_contact_messages').select('*').order('created_at',{ascending:false}).limit(100);return <div className="space-y-5"><div><h1 className="text-2xl font-bold">Mensajes de contacto</h1><p className="text-sm text-gray-500">Últimos 100 mensajes recibidos.</p></div>{error?<p className="text-red-600">{error.message}</p>:<div className="space-y-3">{!data?.length&&<p>No hay mensajes.</p>}{data?.map((m:any)=><article key={m.id} className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"><div className="flex flex-wrap justify-between gap-2"><div><strong>{m.subject}</strong><p className="text-sm text-gray-500">{m.name} · {m.email}</p></div><time className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString('es-GT')}</time></div><p className="mt-3 whitespace-pre-wrap text-sm">{m.message}</p></article>)}</div>}</div>}
+import ContactMessages from '@/components/admin/ContactMessages';
+
+export default async function AdminContactPage() {
+  const supabase = createServerSupabaseClient(); const { data, error } = await supabase.from('legal_contact_messages').select('id, name, email, subject, message, status, created_at').order('created_at', { ascending: false }).limit(100);
+  return <div className="space-y-5"><div><h1 className="text-2xl font-bold">Mensajes de contacto</h1><p className="mt-1 text-sm text-gray-500">Revisa y actualiza el estado de los últimos 100 mensajes.</p></div>{error ? <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error.message}</p> : <ContactMessages messages={(data as any) || []} />}</div>;
+}

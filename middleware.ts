@@ -36,8 +36,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname.startsWith('/admin') && user) {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (!profile || !['admin', 'moderator'].includes(profile.role)) {
+    const { data: profile } = await supabase.from('profiles').select('role, is_active').eq('id', user.id).single();
+    if (!profile || !profile.is_active || !['admin', 'moderator'].includes(profile.role)) {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }

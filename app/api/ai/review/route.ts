@@ -10,7 +10,7 @@ const RequestSchema = z.object({
   content: z.string().min(1, 'El contenido no puede estar vacío').max(20000, 'El contenido es demasiado largo')
 });
 
-const DAILY_LIMIT_PER_USER = 30;
+const DEFAULT_DAILY_LIMIT_PER_USER = 30;
 
 export async function POST(request: NextRequest) {
   const supabase = createServerSupabaseClient();
@@ -42,15 +42,24 @@ export async function POST(request: NextRequest) {
     .eq('requested_by', user.id)
     .gte('created_at', since);
 
-  if ((count ?? 0) >= DAILY_LIMIT_PER_USER) {
+  const { data: aiSetting } = await supabase.from('app_settings').select('value').eq('key', 'ai_provider').maybeSingle();
+  const configuredLimit = Number((aiSetting?.value as any)?.daily_limit_per_user);
+  const preferredProvider = typeof (aiSetting?.value as any)?.provider === 'string'
+    ? (aiSetting?.value as any).provider
+    : null;
+  const dailyLimit = Number.isFinite(configuredLimit) && configuredLimit > 0
+    ? Math.floor(configuredLimit)
+    : DEFAULT_DAILY_LIMIT_PER_USER;
+
+  if ((count ?? 0) >= dailyLimit) {
     return NextResponse.json(
-      { error: `Alcanzaste el límite diario de ${DAILY_LIMIT_PER_USER} revisiones con IA. Intenta de nuevo mañana.` },
+      { error: `Alcanzaste el límite diario de ${dailyLimit} revisiones con IA. Intenta de nuevo mañana.` },
       { status: 429 }
     );
   }
 
   const { mode: _mode, ...songInput } = parsed.data;
-  const { result, aiAvailable, providerName, error, alternateKey } = await reviewSongWithAi(songInput);
+  const { result, aiAvailable, providerName, error, alternateKey } = await reviewSongWithAi(songInput, preferredProvider);
 
   // Registrar la revisión (éxito o degradación) para auditoría y límites
   await supabase.from('song_ai_reviews').insert({

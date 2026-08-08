@@ -35,6 +35,14 @@ type SearchSuggestion = {
   detail?: string;
 };
 
+type ExternalSong = {
+  externalId: string;
+  title: string;
+  snippet: string;
+  source: string;
+  url: string;
+};
+
 function normalizeSearchText(value: string | null | undefined) {
   return (value ?? '')
     .normalize('NFD')
@@ -56,6 +64,8 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [remoteSongs, setRemoteSongs] = useState<SearchSong[]>([]);
+  const [externalSongs, setExternalSongs] = useState<ExternalSong[]>([]);
+  const [externalSearchEnabled, setExternalSearchEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +163,8 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
     if (!shouldSearchRemotely) {
       requestId.current += 1;
       setRemoteSongs([]);
+      setExternalSongs([]);
+      setExternalSearchEnabled(false);
       setError(null);
       setLoading(false);
       return;
@@ -164,18 +176,24 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
       setError(null);
 
       try {
-        const response = await fetch(`/api/songs/search?q=${encodeURIComponent(query.trim())}`, {
-          cache: 'no-store'
-        });
+        const encodedQuery = encodeURIComponent(query.trim());
+        const [response, externalResponse] = await Promise.all([
+          fetch(`/api/songs/search?q=${encodedQuery}`, { cache: 'no-store' }),
+          fetch(`/api/songs/external-search?q=${encodedQuery}`, { cache: 'no-store' })
+        ]);
         const data = await response.json();
+        const externalData = await externalResponse.json();
         if (!response.ok) throw new Error(data.error || 'No se pudo realizar la búsqueda.');
 
         if (currentRequest === requestId.current) {
           setRemoteSongs(data.songs ?? []);
+          setExternalSongs(externalResponse.ok ? externalData.results ?? [] : []);
+          setExternalSearchEnabled(Boolean(externalResponse.ok && externalData.searchEnabled));
         }
       } catch (searchError) {
         if (currentRequest === requestId.current) {
           setRemoteSongs([]);
+          setExternalSongs([]);
           setError(searchError instanceof Error ? searchError.message : 'No se pudo realizar la búsqueda.');
         }
       } finally {
@@ -285,7 +303,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
         )}
 
         <p className="mt-2 text-xs text-gray-500">
-          Se sugieren canciones y artistas mientras escribes. Si no existe una coincidencia visible, se buscan canciones privadas existentes.
+          Se sugieren canciones y artistas mientras escribes. Si no existe una coincidencia visible, también se buscan canciones externas.
         </p>
       </div>
 
@@ -332,7 +350,7 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
           {loading && <div className="p-4 text-sm text-gray-500">Buscando canciones...</div>}
           {error && <div className="p-4 text-sm text-red-600">{error}</div>}
 
-          {!loading && !error && remoteSongs.length === 0 && (
+          {!loading && !error && remoteSongs.length === 0 && externalSongs.length === 0 && (
             <div className="p-4 text-sm text-gray-500">
               No se encontró una canción existente con ese título o artista.
             </div>
@@ -373,6 +391,50 @@ export default function SongCatalogClient({ initialSongs }: { initialSongs: Cata
               </button>
             </div>
           ))}
+
+          {!loading && !error && externalSongs.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-800">
+              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-900/60">
+                Resultados externos
+              </div>
+              {externalSongs.map((song) => (
+                <div
+                  key={song.externalId}
+                  className="flex items-start justify-between gap-4 border-b border-gray-100 p-4 last:border-b-0 dark:border-gray-800"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium">{song.title}</div>
+                    <p className="mt-1 line-clamp-2 text-xs text-gray-500">{song.snippet}</p>
+                    <span className="mt-1 inline-block text-[10px] text-gray-400">{song.source}</span>
+                  </div>
+                  <a
+                    href={song.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-secondary shrink-0 border-primary/40 text-primary dark:border-accent-teal/40 dark:text-accent-teal"
+                  >
+                    Ver fuente
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && !error && externalSongs.length === 0 && (
+            <div className="border-t border-gray-200 p-4 text-sm dark:border-gray-800">
+              {externalSearchEnabled && (
+                <p className="mb-2 text-xs text-gray-500">El proveedor externo no devolvió coincidencias.</p>
+              )}
+              <a
+                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${query.trim()} letra acordes`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-primary underline dark:text-accent-teal"
+              >
+                Buscar esta canción en YouTube
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

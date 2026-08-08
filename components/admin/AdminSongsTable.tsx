@@ -22,11 +22,17 @@ export default function AdminSongsTable({ songs: initial }: { songs: AdminSong[]
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergeSuccess, setMergeSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busySongId, setBusySongId] = useState<string | null>(null);
 
   async function toggleDeactivate(song: AdminSong) {
     const newDeleted = !song.is_deleted;
-    await supabase.from('songs').update({ is_deleted: newDeleted }).eq('id', song.id);
-    setSongs(songs.map((s) => (s.id === song.id ? { ...s, is_deleted: newDeleted } : s)));
+    setBusySongId(song.id);
+    setActionError(null);
+    const { error } = await supabase.from('songs').update({ is_deleted: newDeleted }).eq('id', song.id);
+    setBusySongId(null);
+    if (error) { setActionError(error.message); return; }
+    setSongs((current) => current.map((s) => (s.id === song.id ? { ...s, is_deleted: newDeleted } : s)));
   }
 
   function toggleSelected(id: string) {
@@ -115,6 +121,7 @@ export default function AdminSongsTable({ songs: initial }: { songs: AdminSong[]
       )}
 
       {mergeSuccess && <p className="text-success text-sm">{mergeSuccess}</p>}
+      {actionError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{actionError}</p>}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
@@ -148,12 +155,16 @@ export default function AdminSongsTable({ songs: initial }: { songs: AdminSong[]
                 <td className="py-2 pr-4">{s.status}</td>
                 <td className="py-2 pr-4">{s.visibility === 'private' ? 'Privada' : 'Pública'}</td>
                 <td className="py-2 pr-4">
-                  <button onClick={() => toggleDeactivate(s)} className="text-danger underline text-xs">
-                    {s.is_deleted ? 'Restaurar' : 'Desactivar'}
-                  </button>
+                  <div className="flex gap-3 text-xs">
+                    <Link href={`/canciones/${s.id}/editar`} className="text-primary underline">Editar</Link>
+                    <button disabled={busySongId === s.id} onClick={() => toggleDeactivate(s)} className="text-danger underline disabled:opacity-50">
+                      {busySongId === s.id ? 'Guardando...' : s.is_deleted ? 'Restaurar' : 'Desactivar'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
+            {songs.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-sm text-gray-500">No se encontraron canciones con estos filtros.</td></tr>}
           </tbody>
         </table>
       </div>

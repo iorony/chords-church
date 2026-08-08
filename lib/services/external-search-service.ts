@@ -47,14 +47,53 @@ class UnconfiguredSearchProvider implements SongSearchProvider {
   }
 }
 
-function getEnabledProviders(): SongSearchProvider[] {
-  const configured = process.env.SEARCH_PROVIDER;
-  if (!configured || !process.env.SEARCH_API_KEY) {
+type SerperOrganicResult = { title?: string; link?: string; snippet?: string };
+
+class SerperSearchProvider implements SongSearchProvider {
+  name = 'serper';
+  canImport = false;
+
+  constructor(private readonly apiKey: string) {}
+
+  async search(query: string): Promise<ExternalSongResult[]> {
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-API-KEY': this.apiKey },
+      body: JSON.stringify({ q: `${query} letra acordes canción`, gl: 'gt', hl: 'es', num: 10 }),
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`Serper respondió con estado ${response.status}.`);
+
+    const payload = (await response.json()) as { organic?: SerperOrganicResult[] };
+    const retrievedAt = new Date().toISOString();
+    return (payload.organic ?? []).flatMap((result, index) => {
+      if (!result.title || !result.link) return [];
+      const hasChords = /acorde|chord/i.test(`${result.title} ${result.snippet ?? ''}`);
+      return [{
+        externalId: `serper-${index}-${result.link}`,
+        title: result.title,
+        snippet: result.snippet ?? 'Resultado externo relacionado con la canción.',
+        source: 'Google mediante Serper',
+        url: result.link,
+        contentType: hasChords ? 'chords' as const : 'unknown' as const,
+        hasChords,
+        canImport: false,
+        retrievedAt
+      }];
+    });
+  }
+}
+
+function getEnabledProviders(configuredProvider?: string | null): SongSearchProvider[] {
+  const configured = (configuredProvider || process.env.SEARCH_PROVIDER)?.trim().toLowerCase();
+  const apiKey = process.env.SEARCH_API_KEY?.trim();
+  if (!configured || !apiKey) {
     return [new UnconfiguredSearchProvider()];
   }
   // Punto de extensión: agregar aquí proveedores reales cuando se
   // configuren credenciales, por ejemplo:
   // if (configured === 'algun_proveedor') return [new AlgunProveedorSearchProvider()];
+  if (configured === 'serper') return [new SerperSearchProvider(apiKey)];
   return [new UnconfiguredSearchProvider()];
 }
 
@@ -74,7 +113,17 @@ export async function searchExternalSongs(
   supabase: SupabaseClient,
   query: string
 ): Promise<{ results: ExternalSongResult[]; fromCache: boolean; searchEnabled: boolean }> {
-  const providers = getEnabledProviders();
+  const { data: searchSetting } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'search_provider')
+    .maybeSingle();
+  const setting = searchSetting?.value as { enabled?: boolean; provider?: string | null } | null;
+  if (setting?.enabled === false) {
+    return { results: [], fromCache: false, searchEnabled: false };
+  }
+
+  const providers = getEnabledProviders(setting?.provider);
   const searchEnabled = !providers.every((p) => p.name === 'unconfigured');
 
   if (!searchEnabled) {
@@ -85,6 +134,7 @@ export async function searchExternalSongs(
     .from('external_search_cache')
     .select('*')
     .eq('query', query)
+    .eq('provider', providers.map((p) => p.name).join(','))
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1)

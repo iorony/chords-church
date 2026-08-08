@@ -4,47 +4,26 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ModerationActions({ type, id }: { type: 'report' | 'proposal'; id: string }) {
-  const supabase = createClient();
-  const [done, setDone] = useState(false);
-
+  const supabase = createClient(); const [done, setDone] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   async function resolve(approve: boolean) {
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
+    setBusy(true); setError(null); const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('La sesión expiró.'); setBusy(false); return; }
     if (type === 'report') {
-      await supabase
-        .from('song_reports')
-        .update({ status: approve ? 'resolved' : 'dismissed', resolved_by: user?.id, resolved_at: new Date().toISOString() })
-        .eq('id', id);
+      const { error: reportError } = await supabase.from('song_reports').update({ status: approve ? 'resolved' : 'dismissed', resolved_by: user.id, resolved_at: new Date().toISOString() }).eq('id', id);
+      if (reportError) { setError(reportError.message); setBusy(false); return; }
     } else {
-      const { data: proposal } = await supabase
-        .from('song_edit_proposals')
-        .select('song_id, proposed_content')
-        .eq('id', id)
-        .single();
-
-      if (approve && proposal) {
-        await supabase.from('songs').update({ content: proposal.proposed_content }).eq('id', proposal.song_id);
+      const { data: proposal, error: readError } = await supabase.from('song_edit_proposals').select('song_id, proposed_content, change_summary').eq('id', id).single();
+      if (readError || !proposal) { setError(readError?.message || 'No se encontró la propuesta.'); setBusy(false); return; }
+      if (approve) {
+        const { error: approveError } = await supabase.rpc('approve_song_edit_proposal', { target_proposal_id: id });
+        if (approveError) { setError(approveError.message); setBusy(false); return; }
+      } else {
+        const { error: proposalError } = await supabase.from('song_edit_proposals').update({ status: 'rejected', reviewed_by: user.id, reviewed_at: new Date().toISOString() }).eq('id', id);
+        if (proposalError) { setError(proposalError.message); setBusy(false); return; }
       }
-      await supabase
-        .from('song_edit_proposals')
-        .update({ status: approve ? 'approved' : 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
-        .eq('id', id);
     }
-    setDone(true);
+    setBusy(false); setDone(true);
   }
-
-  if (done) return <span className="text-xs text-gray-400">Resuelto</span>;
-
-  return (
-    <div className="flex gap-2 text-xs">
-      <button onClick={() => resolve(true)} className="text-success underline">
-        Aprobar
-      </button>
-      <button onClick={() => resolve(false)} className="text-danger underline">
-        Rechazar
-      </button>
-    </div>
-  );
+  if (done) return <span className="text-xs font-medium text-green-700">Procesado</span>;
+  return <div className="text-right">{error && <p className="mb-1 max-w-64 text-xs text-red-600">{error}</p>}<div className="flex justify-end gap-2 text-xs"><button disabled={busy} onClick={() => resolve(true)} className="text-green-700 underline disabled:opacity-50">{type === 'report' ? 'Resolver' : 'Aprobar'}</button><button disabled={busy} onClick={() => resolve(false)} className="text-red-600 underline disabled:opacity-50">{type === 'report' ? 'Descartar' : 'Rechazar'}</button></div></div>;
 }

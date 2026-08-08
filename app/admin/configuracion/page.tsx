@@ -1,20 +1,17 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import SettingsEditor from '@/components/admin/SettingsEditor';
 
 export default async function AdminSettingsPage() {
   const supabase = createServerSupabaseClient();
-  const { data: settings } = await supabase.from('app_settings').select('*').order('key');
+  const { data: settings, error } = await supabase.from('app_settings').select('key, value').order('key');
 
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-5">
+    <div>
       <h1 className="text-2xl font-bold">Configuración general</h1>
-      <div className="space-y-3">
-        {settings?.map((s) => (
-          <div key={s.key} className="border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-            <div className="font-mono text-sm font-semibold">{s.key}</div>
-            <pre className="text-xs text-gray-500 mt-1">{JSON.stringify(s.value, null, 2)}</pre>
-          </div>
-        ))}
-      </div>
+      <p className="mt-1 text-sm text-gray-500">Administra proveedores y límites operativos. Solo los administradores pueden guardar cambios.</p>
     </div>
-  );
+    {error
+      ? <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error.message}</p>
+      : <SettingsEditor settings={(settings as any) || []} />}
+  </div>;
 }

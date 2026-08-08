@@ -28,8 +28,13 @@ const PROVIDER_API_KEYS: Record<string, string> = {
   anthropic: 'ANTHROPIC_API_KEY'
 };
 
-function getProviderOrder(): string[] {
-  const configured = process.env.AI_PROVIDER_ORDER || process.env.AI_PROVIDER || 'groq,openrouter';
+function getProviderOrder(preferredProvider?: string | null): string[] {
+  const configured = [
+    preferredProvider,
+    process.env.AI_PROVIDER_ORDER,
+    process.env.AI_PROVIDER,
+    'groq,openrouter'
+  ].filter(Boolean).join(',');
   const names = configured
     .split(',')
     .map((name) => name.trim().toLowerCase())
@@ -38,10 +43,10 @@ function getProviderOrder(): string[] {
   return Array.from(new Set<string>(names));
 }
 
-function getConfiguredProviders(): AiProvider[] {
+function getConfiguredProviders(preferredProvider?: string | null): AiProvider[] {
   const providers: AiProvider[] = [];
 
-  for (const name of getProviderOrder()) {
+  for (const name of getProviderOrder(preferredProvider)) {
     const provider = PROVIDERS[name];
     if (!provider) {
       console.warn(`[AI] Proveedor desconocido omitido: ${name}`);
@@ -470,7 +475,7 @@ export interface ReviewSongInput {
  * configurados. Si uno falla, pasa automáticamente al siguiente. Solo cuando
  * todos fallan se devuelve el análisis local degradado.
  */
-export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
+export async function reviewSongWithAi(input: ReviewSongInput, preferredProvider?: string | null): Promise<{
   result: AiReviewResponse;
   aiAvailable: boolean;
   providerName: string;
@@ -484,7 +489,7 @@ export async function reviewSongWithAi(input: ReviewSongInput): Promise<{
   const localSections = rebuildSectionsFromBlocks(blocks, new Map());
   const { alternate: alternateKey } = detectKeyWithAlternate(input.content);
 
-  const providers = getConfiguredProviders();
+  const providers = getConfiguredProviders(preferredProvider);
   const artistMetadata = await detectArtistMetadata(
     input,
     providers,
