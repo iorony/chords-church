@@ -1,7 +1,8 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-const PROVIDERS = ['groq', 'openrouter', 'gemini', 'openai', 'anthropic'] as const;
+const PROVIDERS = ['kie', 'groq', 'openrouter', 'gemini', 'openai', 'anthropic'] as const;
 const PROVIDER_KEYS: Record<(typeof PROVIDERS)[number], string> = {
+  kie: 'KIE_API_KEY',
   groq: 'GROQ_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
   gemini: 'GOOGLE_GENERATIVE_AI_API_KEY',

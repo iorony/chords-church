@@ -60,6 +60,17 @@ function trimBlankEdges(lines: string[]): string[] {
   return copy;
 }
 
+function hasProbableSungLyrics(lines: string[]): boolean {
+  return lines.some((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || isChordLine(line)) return false;
+    // Notas editoriales habituales dentro de una progresión de introducción.
+    if (/^\(.*(?:solo\s+notas|instrumental|notas?).*\)$/i.test(trimmed)) return false;
+    const withoutNote = trimmed.replace(/\s*\(.*(?:solo\s+notas|instrumental|notas?).*\)\s*$/i, '').trim();
+    return Boolean(withoutNote && !isChordLine(withoutNote));
+  });
+}
+
 /**
  * Divide una canción sin reescribirla.
  * - Las regiones con etiqueta explícita se conservan como un único bloque.
@@ -104,7 +115,29 @@ export function parseSongBlocks(content: string): SongBlock[] {
 
   const flushCurrent = () => {
     if (!current.length) return;
-    if (currentExplicitLabel) pushBlock(current, currentExplicitLabel);
+    if (currentExplicitLabel && sectionTypeFromLabel(currentExplicitLabel) === 'INTRO') {
+      // Es frecuente recibir "Intro: G D Em C" y, tras una línea vacía,
+      // la primera estrofa sin encabezado. El encabezado INTRO no debe
+      // apropiarse de toda esa letra hasta el siguiente CORO.
+      const splitAt = current.findIndex((line, index) => {
+        if (line.trim() || index === 0) return false;
+        const introPart = trimBlankEdges(current.slice(0, index));
+        const remainder = trimBlankEdges(current.slice(index + 1));
+        return introPart.length > 0
+          && !hasProbableSungLyrics(introPart)
+          && remainder.length > 0
+          && hasProbableSungLyrics(remainder);
+      });
+
+      if (splitAt >= 0) {
+        pushBlock(current.slice(0, splitAt), currentExplicitLabel);
+        // El resto forma una sola región semántica: sus espacios internos
+        // separan frases, no estrofas adicionales.
+        pushBlock(current.slice(splitAt + 1), null);
+      } else {
+        pushBlock(current, currentExplicitLabel);
+      }
+    } else if (currentExplicitLabel) pushBlock(current, currentExplicitLabel);
     else flushUnknownByBlankLines();
     current = [];
   };

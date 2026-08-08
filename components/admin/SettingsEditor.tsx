@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 type Setting = { key: string; value: unknown };
 type AiSetting = { provider: string; daily_limit_per_user: number };
 type SearchSetting = { enabled: boolean; provider: string | null };
-const AI_PROVIDERS = ['groq', 'openrouter', 'gemini', 'openai', 'anthropic'];
+const AI_PROVIDERS = ['kie', 'groq', 'openrouter', 'gemini', 'openai', 'anthropic'];
 
 export default function SettingsEditor({ settings }: { settings: Setting[] }) {
   const supabase = createClient();

@@ -23,7 +23,7 @@ export interface AiReviewInput {
 }
 
 export interface AiProvider {
-  name: 'openai' | 'gemini' | 'anthropic' | 'openrouter' | 'groq';
+  name: 'openai' | 'gemini' | 'anthropic' | 'openrouter' | 'groq' | 'kie';
   review(input: AiReviewInput): Promise<AiReviewResponse>;
 }
 

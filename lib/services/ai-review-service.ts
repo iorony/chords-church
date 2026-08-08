@@ -7,12 +7,14 @@ import { openaiProvider } from '../ai/providers/openai';
 import { geminiProvider } from '../ai/providers/gemini';
 import { openrouterProvider } from '../ai/providers/openrouter';
 import { groqProvider } from '../ai/providers/groq';
+import { kieProvider } from '../ai/providers/kie';
 import { detectKey, detectModulation, formatKeyLabel, detectKeyWithAlternate, detectAlternateKeyForPrimary } from '../chords/key-detection';
 import { parseSongBlocks, rebuildSectionsFromBlocks, SongBlock } from '../chords/block-parser';
 import { SectionType } from '../chords/types';
 import { detectSectionLabel, tokenizeChordLine, stripChordWrapper } from '../chords/chord-parser';
 
 const PROVIDERS: Record<string, AiProvider> = {
+  kie: kieProvider,
   groq: groqProvider,
   openrouter: openrouterProvider,
   gemini: geminiProvider,
@@ -21,6 +23,7 @@ const PROVIDERS: Record<string, AiProvider> = {
 };
 
 const PROVIDER_API_KEYS: Record<string, string> = {
+  kie: 'KIE_API_KEY',
   groq: 'GROQ_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
   gemini: 'GOOGLE_GENERATIVE_AI_API_KEY',
