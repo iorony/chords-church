@@ -10,18 +10,18 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          light: '#FAF7F2',
-          dark: '#17181C'
+          light: '#EEF1FA',
+          dark: '#171827'
         },
         primary: {
-          DEFAULT: '#1E3A8A',
-          light: '#3B5BDB'
+          DEFAULT: '#5B5BD6',
+          light: '#7375EA'
         },
         accent: {
-          gold: '#D4A94C',
-          teal: '#2DB6A3'
+          gold: '#F4B860',
+          teal: '#54C7B7'
         },
-        chord: '#B4552B',
+        chord: '#D65B3F',
         danger: '#C0392B',
         success: '#27824C'
       },

@@ -15,21 +15,45 @@ export default async function FavoritesPage() {
     .eq('user_id', user.id);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Favoritos</h1>
+    <div className="favorites-page">
+      <header className="favorites-hero">
+        <div>
+          <span className="favorites-eyebrow">Tu biblioteca personal</span>
+          <h1>Favoritos</h1>
+          <p>Las canciones que quieres tener siempre a mano, guardadas en tu tono preferido.</p>
+        </div>
+        <div className="favorites-count" aria-label={`${favorites?.length || 0} canciones favoritas`}>
+          <span aria-hidden="true">♥</span>
+          <strong>{favorites?.length || 0}</strong>
+          <small>canciones</small>
+        </div>
+      </header>
       {(!favorites || favorites.length === 0) && (
-        <p className="text-gray-500 text-sm">Aún no tienes canciones favoritas.</p>
+        <div className="favorites-empty">
+          <span className="favorites-empty-icon" aria-hidden="true">♪</span>
+          <h2>Aún no tienes favoritos</h2>
+          <p>Explora el cancionero y guarda las canciones que utilizas con frecuencia.</p>
+          <Link href="/canciones" className="favorites-browse">Explorar canciones</Link>
+        </div>
       )}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {favorites?.map((f: any) => (
+      <div className="favorites-grid">
+        {favorites?.map((f: any, index: number) => (
           <Link
             key={f.songs.id}
             href={`/canciones/${f.songs.slug}`}
-            className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 hover:border-primary"
+            className="favorite-card"
           >
-            <div className="font-medium">{f.songs.title}</div>
-            <div className="text-xs text-accent-teal mt-2">
-              Tono preferido: {f.preferred_key || f.songs.detected_key || f.songs.original_key || '—'}
+            <div className="favorite-card-top">
+              <span className="favorite-number">{String(index + 1).padStart(2, '0')}</span>
+              <span className="favorite-heart" aria-hidden="true">♥</span>
+            </div>
+            <div className="favorite-card-body">
+              <h2>{f.songs.title}</h2>
+              <span className="favorite-open">Abrir canción <span aria-hidden="true">→</span></span>
+            </div>
+            <div className="favorite-key">
+              <span>Tono preferido</span>
+              <strong>{f.preferred_key || f.songs.detected_key || f.songs.original_key || '—'}</strong>
             </div>
           </Link>
         ))}

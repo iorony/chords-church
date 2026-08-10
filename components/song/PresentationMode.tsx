@@ -78,10 +78,10 @@ function widthFittedFontRem(
 
   const { columnWidth } = columnMetrics(viewportWidth, columns);
   const longestLine = longestSectionLine(sections);
-  const safeColumnWidth = Math.max(110, columnWidth - 10);
+  const safeColumnWidth = Math.max(110, columnWidth - (columns > 1 ? 24 : 12));
 
-  // Source Code Pro/monoespaciada ocupa aproximadamente 0.61em por carácter.
-  const widthFitRem = safeColumnWidth / (Math.max(longestLine, 1) * 0.61 * 16);
+  // Margen conservador para divisores, redondeo y carga de la fuente.
+  const widthFitRem = safeColumnWidth / (Math.max(longestLine, 1) * 0.66 * 16);
   return Math.min(requestedFontRem, Math.max(FIT_MIN_FONT_REM, widthFitRem));
 }
 
@@ -220,7 +220,7 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
   const hasSongs = songs.length > 0;
   const isMinorKey = /m$/i.test(song.baseKey);
   const semitones = semitoneOverride || semitoneDifference(song.baseKey, song.selectedKey);
-  const transposedContent = transposeSongContent(song.content, { semitones });
+  const transposedContent = transposeSongContent(song.content, { semitones, preserveColumns: true });
   const currentKey =
     ALL_KEYS_GENERAL[((keyToIndex(song.baseKey) + semitones) % 12 + 12) % 12] + (isMinorKey ? 'm' : '');
 

@@ -14,12 +14,15 @@ export default function NavigationProgress() {
   const [showPanel, setShowPanel] = useState(false);
   const panelTimer = useRef<number | null>(null);
   const safetyTimer = useRef<number | null>(null);
+  const finishTimer = useRef<number | null>(null);
 
   function clearTimers() {
     if (panelTimer.current) window.clearTimeout(panelTimer.current);
     if (safetyTimer.current) window.clearTimeout(safetyTimer.current);
+    if (finishTimer.current) window.clearTimeout(finishTimer.current);
     panelTimer.current = null;
     safetyTimer.current = null;
+    finishTimer.current = null;
   }
 
   function start() {
@@ -37,7 +40,10 @@ export default function NavigationProgress() {
   function finish() {
     clearTimers();
     setShowPanel(false);
-    window.setTimeout(() => setLoading(false), 180);
+    finishTimer.current = window.setTimeout(() => {
+      setLoading(false);
+      finishTimer.current = null;
+    }, 180);
   }
 
   useEffect(() => {
@@ -76,15 +82,17 @@ export default function NavigationProgress() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!loading) return null;
-
   return (
     <>
-      <div className="route-progress-track" aria-hidden="true">
+      <div className={`route-progress-track ${loading ? '' : 'hidden'}`} aria-hidden="true">
         <div className="route-progress-bar" />
       </div>
-      {showPanel && (
-        <div className="route-progress-panel" role="status" aria-live="polite">
+      <div
+        className={`route-progress-panel ${loading && showPanel ? '' : 'hidden'}`}
+        role="status"
+        aria-live="polite"
+        aria-hidden={!loading || !showPanel}
+      >
           <span className="route-progress-mini-animation" aria-hidden="true">
             <i />
             <i />
@@ -94,8 +102,7 @@ export default function NavigationProgress() {
             <strong>Cargando página…</strong>
             <p>Estamos preparando el contenido.</p>
           </div>
-        </div>
-      )}
+      </div>
     </>
   );
 }

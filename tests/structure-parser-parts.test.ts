@@ -3,6 +3,12 @@ import { detectSectionLabel } from '../lib/chords/chord-parser';
 import { buildSections } from '../lib/chords/structure-parser';
 
 describe('encabezados PARTE e intro/final en texto plano', () => {
+  it('conserva la sangría de la primera línea de acordes de una sección', () => {
+    const sections = buildSections('[CORO]\n          C     Em D\nCantan ángeles, Santo');
+
+    expect(sections[0].content).toBe('          C     Em D\nCantan ángeles, Santo');
+  });
+
   it('reconoce y conserva PARTE con numeración romana o arábiga', () => {
     expect(detectSectionLabel('PARTE I')).toBe('PARTE I');
     expect(detectSectionLabel('Parte 2:')).toBe('PARTE 2');

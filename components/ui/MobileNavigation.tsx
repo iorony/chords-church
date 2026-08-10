@@ -5,15 +5,18 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import NavAuthStatus from '@/components/ui/NavAuthStatus';
+import Brand from '@/components/ui/Brand';
 
 type NavLink = { href: string; label: string };
 
 export default function MobileNavigation({ links }: { links: NavLink[] }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const pathname = usePathname();
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setPortalRoot(document.getElementById('mobile-navigation-root'));
+  }, []);
 
   useEffect(() => {
     setOpen(false);
@@ -40,7 +43,7 @@ export default function MobileNavigation({ links }: { links: NavLink[] }) {
         aria-label="Menú principal"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-bg-light px-5 py-4 dark:border-gray-800 dark:bg-bg-dark">
-          <span className="flex items-center gap-2.5 font-bold text-gray-950 dark:text-white"><span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-white dark:bg-accent-teal dark:text-gray-950">♪</span>Cancionero</span>
+          <Brand compact />
           <button
             type="button"
             aria-label="Cerrar menú"
@@ -87,7 +90,7 @@ export default function MobileNavigation({ links }: { links: NavLink[] }) {
       >
         {open ? '×' : '☰'}
       </button>
-      {mounted && menu ? createPortal(menu, document.body) : null}
+      {portalRoot && menu ? createPortal(menu, portalRoot) : null}
     </div>
   );
 }

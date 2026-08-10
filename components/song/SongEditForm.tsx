@@ -308,7 +308,7 @@ export default function SongEditForm({
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full h-[560px] border border-gray-300 dark:border-gray-700 bg-gray-950 text-gray-100 rounded-lg px-3 py-3 font-mono text-sm leading-relaxed resize-none overflow-y-auto"
+            className="song-edit-content-input w-full h-[560px] border rounded-lg px-3 py-3 font-mono text-sm leading-relaxed resize-none overflow-y-auto"
           />
         </div>
         <div className="min-w-0">

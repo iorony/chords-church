@@ -33,6 +33,8 @@ function indexToNote(index: number): { root: NoteLetter; accidental: Accidental 
 
 export interface TransposeOptions {
   semitones: number;
+  /** Mantiene la columna visual de cada token; útil para vistas proyectadas. */
+  preserveColumns?: boolean;
 }
 
 export function transposeChord(raw: string, options: TransposeOptions): string {
@@ -66,6 +68,38 @@ export function transposeChord(raw: string, options: TransposeOptions): string {
  */
 export function transposeChordLine(line: string, options: TransposeOptions): string {
   const tokens = tokenizeChordLine(line);
+
+  if (options.preserveColumns) {
+    let aligned = '';
+    let precededByWhitespace = false;
+
+    for (const token of tokens) {
+      if (token.kind === 'whitespace') {
+        precededByWhitespace = true;
+        continue;
+      }
+
+      if (aligned.length < token.column) {
+        aligned += ' '.repeat(token.column - aligned.length);
+      } else if (precededByWhitespace && aligned.length > 0 && !aligned.endsWith(' ')) {
+        // Si un acorde creció hasta ocupar la columna siguiente, dejamos como
+        // mínimo una separación legible. Ese solapamiento es físicamente
+        // imposible de evitar sin mover el siguiente token.
+        aligned += ' ';
+      }
+
+      if (token.kind === 'chord') {
+        const { prefix, core, suffix } = stripChordWrapper(token.value);
+        aligned += prefix + transposeChord(core, options) + suffix;
+      } else {
+        aligned += token.value;
+      }
+      precededByWhitespace = false;
+    }
+
+    return aligned;
+  }
+
   let result = line;
   // Reemplazar de derecha a izquierda para no invalidar índices de columna
   for (let i = tokens.length - 1; i >= 0; i--) {

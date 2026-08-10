@@ -539,8 +539,16 @@ export default function NewSongForm() {
 
   if (step === 'form') {
     return (
-      <div className="w-full max-w-3xl space-y-4">
-        <h1 className="text-2xl font-bold">Agregar canción</h1>
+      <div className="new-song-page">
+        <header className="new-song-hero">
+          <div className="new-song-hero-icon" aria-hidden="true">♪</div>
+          <div>
+            <span className="new-song-eyebrow">Amplía el cancionero</span>
+            <h1>Agregar canción</h1>
+            <p>Pega la letra, agrega una referencia y deja que la herramienta organice la canción.</p>
+          </div>
+        </header>
+        <div className="new-song-form-card">
         {error && (
           <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm">
             <p className="text-danger">{error}</p>
@@ -568,6 +576,11 @@ export default function NewSongForm() {
             )}
           </div>
         )}
+        <section className="new-song-section">
+          <div className="new-song-section-heading">
+            <span>01</span>
+            <div><h2>Información principal</h2><p>Identifica la canción que vas a incorporar.</p></div>
+          </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm mb-1">Título <span className="text-danger">*</span></label>
@@ -621,6 +634,12 @@ export default function NewSongForm() {
           </div>
         </div>
         {checkingDuplicate && <p className="text-xs text-gray-500">Comprobando si la canción ya existe...</p>}
+        </section>
+        <section className="new-song-section">
+          <div className="new-song-section-heading">
+            <span>02</span>
+            <div><h2>Video de referencia</h2><p>Opcional, pero útil para comprobar la versión correcta.</p></div>
+          </div>
         <div className="space-y-2">
           <label htmlFor="youtube-source" className="block text-sm">Video de referencia de YouTube <span className="text-xs text-gray-500">(opcional)</span></label>
           <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_15rem]">
@@ -638,6 +657,12 @@ export default function NewSongForm() {
             <YouTubePreview url={sourceUrl} title={`Referencia de ${title || 'la canción'}`} />
           </div>
         </div>
+        </section>
+        <section className="new-song-section">
+          <div className="new-song-section-heading">
+            <span>03</span>
+            <div><h2>Letra y acordes</h2><p>Conservaremos los acordes y organizaremos cada sección.</p></div>
+          </div>
         <div>
           <label className="block text-sm mb-1">Letra con acordes de la canción <span className="text-danger">*</span></label>
           <p className="mb-1.5 text-xs text-gray-500">La IA organizará las secciones y conservará los acordes incluidos.</p>
@@ -649,10 +674,11 @@ export default function NewSongForm() {
             placeholder={'Escribe o pega aquí la letra de la canción...'}
           />
         </div>
-        <fieldset className="border border-gray-200 dark:border-gray-800 rounded-lg p-3">
+        </section>
+        <fieldset className="new-song-methods">
           <legend className="px-1 text-sm font-medium">Método de reestructuración</legend>
           <div className="grid sm:grid-cols-2 gap-3">
-            <label className={`cursor-pointer rounded-md border p-3 ${reviewMode === 'ai' ? 'border-primary bg-primary/5' : 'border-gray-300 dark:border-gray-700'}`}>
+            <label className={`new-song-method ${reviewMode === 'ai' ? 'is-selected' : ''}`}>
               <input
                 type="radio"
                 name="reviewMode"
@@ -664,7 +690,7 @@ export default function NewSongForm() {
               <strong>Con IA</strong>
               <span className="block text-xs text-gray-500 mt-1">Mejor detección semántica de estrofas, coros y puentes. Usa el failover configurado.</span>
             </label>
-            <label className={`cursor-pointer rounded-md border p-3 ${reviewMode === 'local' ? 'border-primary bg-primary/5' : 'border-gray-300 dark:border-gray-700'}`}>
+            <label className={`new-song-method ${reviewMode === 'local' ? 'is-selected' : ''}`}>
               <input
                 type="radio"
                 name="reviewMode"
@@ -678,13 +704,17 @@ export default function NewSongForm() {
             </label>
           </div>
         </fieldset>
+        <div className="new-song-actions">
+        <span>Podrás revisar el resultado antes de guardar.</span>
         <button
           onClick={handleReview}
           disabled={!title.trim() || !content.trim() || (reviewMode === 'local' && !artist.trim()) || checkingDuplicate || Boolean(duplicateMatch)}
-          className="bg-primary text-white px-5 py-2.5 rounded-md hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed"
+          className="new-song-submit"
         >
           {reviewMode === 'ai' ? 'Revisar y estructurar con IA' : 'Revisar y estructurar localmente'}
         </button>
+        </div>
+        </div>
       </div>
     );
   }

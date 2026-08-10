@@ -139,8 +139,18 @@ export function buildSections(content: string): SongSection[] {
   let verseCounter = 0;
   let hasExplicitLabels = lines.some((l) => l.kind === 'section-header');
 
+  const withoutOuterBlankLines = (buffer: string[]) => {
+    let start = 0;
+    let end = buffer.length;
+    while (start < end && !buffer[start].trim()) start += 1;
+    while (end > start && !buffer[end - 1].trim()) end -= 1;
+    return buffer.slice(start, end);
+  };
+
   function flush(label: string | null) {
-    const text = currentBuffer.join('\n').trim();
+    // La sangría de la primera línea posiciona acordes sobre la letra.
+    // Retiramos sólo renglones vacíos externos, no espacios musicales.
+    const text = withoutOuterBlankLines(currentBuffer).join('\n');
     if (!text) {
       currentBuffer = [];
       return;
@@ -281,7 +291,7 @@ export function buildSections(content: string): SongSection[] {
     const blocks: string[] = [];
     let blockBuffer: string[] = [];
     const flushBlock = () => {
-      const block = blockBuffer.join('\n').trim();
+      const block = withoutOuterBlankLines(blockBuffer).join('\n');
       if (block) blocks.push(block);
       blockBuffer = [];
     };

@@ -165,6 +165,15 @@ Hossana Hossana Hossana al rey`;
 });
 
 describe('transposeChordLine / transposeSongContent', () => {
+  it('puede preservar las columnas de los acordes para presentación', () => {
+    const original = 'C        Em       D';
+    const result = transposeChordLine(original, { semitones: 4, preserveColumns: true });
+
+    expect(result).toBe('E        G#m      F#');
+    expect(result.indexOf('G#m')).toBe(original.indexOf('Em'));
+    expect(result.indexOf('F#')).toBe(original.indexOf('D'));
+  });
+
   it('preserva el espaciado de la letra y solo cambia acordes', () => {
     const content = 'G        D\nGrande eres Dios\nEm             C\nTu amor nunca fallará';
     const result = transposeSongContent(content, { semitones: 2 });
