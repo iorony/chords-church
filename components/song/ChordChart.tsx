@@ -28,7 +28,8 @@ function renderChordLineTokens(line: string, key: number) {
       {segments.map((segment, i) => {
         const { value, kind } = segment;
         if (kind === 'whitespace') return <span key={i}>{value}</span>;
-        if (kind === 'chord') {
+        const isCompactNoteRun = kind === 'neutral' && /^([A-G])\1{1,}$/.test(value);
+        if (kind === 'chord' || isCompactNoteRun) {
           return (
             <span key={i} className="chord">
               {value}

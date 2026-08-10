@@ -112,6 +112,21 @@ export function transposeChordLine(line: string, options: TransposeOptions): str
   return result;
 }
 
+function isEmbeddedProgression(line: string): boolean {
+  const tokens = tokenizeChordLine(line);
+  const chordCount = tokens.filter((token) => token.kind === 'chord').length;
+  const hasMusicalSeparators = /[|/]|(?:[A-G](?:#|b)?)-(?=[A-G])/i.test(line);
+  return chordCount >= 2 && hasMusicalSeparators;
+}
+
+function transposeCompactNoteRuns(line: string, options: TransposeOptions): string {
+  // Algunas fuentes escriben repeticiones melódicas como CCC o FFF. Sólo se
+  // llama para progresiones ya verificadas, evitando modificar palabras.
+  return line.replace(/\b([A-G])\1{1,}\b/g, (run: string) =>
+    Array.from(run, (note) => transposeChord(note, options)).join('')
+  );
+}
+
 /**
  * Transpone el contenido completo de una canción (texto con letra y
  * acordes intercalados). Nunca modifica las líneas de letra.
@@ -123,7 +138,9 @@ export function transposeSongContent(content: string, options: TransposeOptions)
       const trimmed = line.trim();
       if (!trimmed) return line;
       if (trimmed.startsWith('[') && trimmed.endsWith(']')) return line; // encabezado de sección
-      if (isChordLine(line)) return transposeChordLine(line, options);
+      if (isChordLine(line) || isEmbeddedProgression(line)) {
+        return transposeCompactNoteRuns(transposeChordLine(line, options), options);
+      }
       return line;
     })
     .join('\n');

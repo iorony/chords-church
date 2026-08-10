@@ -165,6 +165,20 @@ Hossana Hossana Hossana al rey`;
 });
 
 describe('transposeChordLine / transposeSongContent', () => {
+  it('transpone progresiones incrustadas en indicaciones musicales', () => {
+    const content = 'INTRO.  //C   Dm7   C/E   Fmaj7 //\nSOLO DE GUITARRA  //Am7 F C Dm7//';
+    const result = transposeSongContent(content, { semitones: 2 });
+
+    expect(result).toContain('INTRO.  //D   Em7   D/F#   Gmaj7 //');
+    expect(result).toContain('SOLO DE GUITARRA  //Bm7 G D Em7//');
+  });
+
+  it('transpone notas repetidas compactas dentro de una progresión', () => {
+    const result = transposeSongContent('A A A F CCC | A F D CCC | D-E-F | C-D-E FFF |', { semitones: 2 });
+
+    expect(result).toBe('B B B G DDD | B G E DDD | E-F#-G | D-E-F# GGG |');
+  });
+
   it('puede preservar las columnas de los acordes para presentación', () => {
     const original = 'C        Em       D';
     const result = transposeChordLine(original, { semitones: 4, preserveColumns: true });
