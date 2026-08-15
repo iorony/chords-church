@@ -21,6 +21,13 @@ export interface PresentationModeProps {
 }
 
 type SectionPage = SongSection[][];
+type PresentationLayout = {
+  pages: SectionPage[];
+  fontRem: number;
+  columns: number;
+  /** Proporción de ancho necesaria para cada columna de la página. */
+  columnWeights: number[];
+};
 
 const MIN_FONT_REM = 0.42;
 const FIT_MIN_FONT_REM = 0.16;
@@ -32,6 +39,16 @@ function visualLineLength(line: string): number {
 }
 
 function longestSectionLine(sections: SongSection[]): number {
+  return sections.reduce((largest, section) => {
+    const labelLength = visualLineLength(`[${section.label}]`);
+    const contentLength = section.content
+      .split('\n')
+      .reduce((max, line) => Math.max(max, visualLineLength(line)), 0);
+    return Math.max(largest, labelLength, contentLength);
+  }, 1);
+}
+
+function longestColumnLine(sections: SongSection[]): number {
   return sections.reduce((largest, section) => {
     const labelLength = visualLineLength(`[${section.label}]`);
     const contentLength = section.content
@@ -85,6 +102,32 @@ function widthFittedFontRem(
   return Math.min(requestedFontRem, Math.max(FIT_MIN_FONT_REM, widthFitRem));
 }
 
+function columnWeightsForPage(
+  page: SectionPage,
+  viewportWidth: number,
+  fontRem: number
+): number[] | null {
+  const activeColumns = page.filter((column) => column.length > 0);
+  if (!activeColumns.length) return [1];
+
+  const { gap } = columnMetrics(viewportWidth, activeColumns.length);
+  const horizontalPadding = viewportWidth < 700 ? 24 : 48;
+  const availableWidth = viewportWidth - horizontalPadding - gap * (activeColumns.length - 1);
+  const charWidth = fontRem * 16 * 0.66;
+
+  // La primera columna no tiene divisor; las siguientes sí reservan espacio
+  // para el borde y su padding izquierdo.
+  const requiredWidths = activeColumns.map((column, index) =>
+    longestColumnLine(column) * charWidth + (index > 0 ? 24 : 12)
+  );
+  const totalRequiredWidth = requiredWidths.reduce((sum, width) => sum + width, 0);
+  if (totalRequiredWidth > availableWidth) return null;
+
+  // Las fracciones permiten que una estrofa con líneas largas conserve más
+  // ancho, mientras INTRO/PUENTE usan solo el espacio que realmente necesitan.
+  return requiredWidths.map((width) => Number((width / 100).toFixed(3)));
+}
+
 function packSectionsInColumns(
   sections: SongSection[],
   columns: number,
@@ -113,13 +156,13 @@ function packSectionsInColumns(
   return { fits: true, page };
 }
 
-function buildSectionPages(
+export function buildSectionPages(
   sections: SongSection[],
   viewportWidth: number,
   viewportHeight: number,
   requestedFontRem: number,
   _preserveRequestedFont = false
-): { pages: SectionPage[]; fontRem: number; columns: number } {
+): PresentationLayout {
   const maxColumns = maxColumnCount(viewportWidth);
   const reservedHeight = viewportWidth < 700 ? 132 : 142;
   // Dejamos un margen inferior de seguridad porque las alturas estimadas en
@@ -128,7 +171,7 @@ function buildSectionPages(
   const requested = Math.min(MAX_FONT_REM, Math.max(MIN_FONT_REM, requestedFontRem));
 
   if (sections.length === 0) {
-    return { pages: [[[]]], fontRem: requested, columns: 1 };
+    return { pages: [[[]]], fontRem: requested, columns: 1, columnWeights: [1] };
   }
 
   // Prioridad de diseño:
@@ -138,21 +181,19 @@ function buildSectionPages(
   // Cada canción siempre se devuelve como una única página.
   for (let fontRem = requested; fontRem >= FIT_MIN_FONT_REM; fontRem = Number((fontRem - 0.02).toFixed(2))) {
     for (let columns = 1; columns <= maxColumns; columns += 1) {
-      const fittedFont = widthFittedFontRem(sections, viewportWidth, columns, fontRem);
-
-      // Si el ancho obliga a reducir más de un paso, dejamos que la siguiente
-      // iteración evalúe ese tamaño de manera uniforme para todos los diseños.
-      if (fittedFont < fontRem - 0.039) continue;
-
-      const fontPx = fittedFont * 16;
+      const fontPx = fontRem * 16;
       const capacity = availableHeight / (fontPx * (viewportWidth < 700 ? 1.34 : 1.45));
       const packed = packSectionsInColumns(sections, columns, capacity);
+      const columnWeights = packed.fits
+        ? columnWeightsForPage(packed.page, viewportWidth, fontRem)
+        : null;
 
-      if (packed.fits) {
+      if (packed.fits && columnWeights) {
         return {
           pages: [packed.page],
-          fontRem: fittedFont,
-          columns
+          fontRem,
+          columns,
+          columnWeights
         };
       }
     }
@@ -161,12 +202,7 @@ function buildSectionPages(
   // Respaldo para contenido excepcionalmente largo. Conservamos todas las
   // secciones en la misma hoja; el contenedor evita crear una página 2/2.
   const columns = maxColumns;
-  const fontRem = widthFittedFontRem(
-    sections,
-    viewportWidth,
-    columns,
-    FIT_MIN_FONT_REM
-  );
+  const fontRem = widthFittedFontRem(sections, viewportWidth, columns, FIT_MIN_FONT_REM);
   const fontPx = fontRem * 16;
   const capacity = availableHeight / (fontPx * (viewportWidth < 700 ? 1.34 : 1.45));
   const packed = packSectionsInColumns(sections, columns, capacity);
@@ -184,7 +220,12 @@ function buildSectionPages(
   return {
     pages: [packed.fits ? packed.page : fallbackPage],
     fontRem,
-    columns
+    columns,
+    columnWeights: columnWeightsForPage(
+      packed.fits ? packed.page : fallbackPage,
+      viewportWidth,
+      fontRem
+    ) ?? Array.from({ length: columns }, () => 1)
   };
 }
 
@@ -263,6 +304,11 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
     }
     return trimmed.length ? trimmed : [[]];
   }, [currentPage]);
+
+  const visibleColumnWeights = useMemo(
+    () => layout.columnWeights.slice(0, visibleColumns.length),
+    [layout.columnWeights, visibleColumns.length]
+  );
 
 
   const toggleFullscreen = useCallback(async () => {
@@ -644,7 +690,11 @@ export default function PresentationMode({ songs }: PresentationModeProps) {
 
             <div
               className="grid min-h-0 flex-1 gap-3 sm:gap-5 overflow-hidden"
-              style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
+              style={{
+                gridTemplateColumns: visibleColumnWeights
+                  .map((weight) => `minmax(0, ${weight}fr)`)
+                  .join(' ')
+              }}
             >
               {visibleColumns.map((column, columnNumber) => (
                 <div
