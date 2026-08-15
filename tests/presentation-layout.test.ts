@@ -33,4 +33,12 @@ describe('layout de presentación en escritorio', () => {
     expect(layout.pages[0].filter((column) => column.length > 0)).toHaveLength(2);
     expect(layout.columnWeights[0]).not.toBe(layout.columnWeights[1]);
   });
+
+  it('llena la primera columna en orden antes de mover una sección completa', () => {
+    const layout = buildSectionPages(sections, 1920, 1080, 1.5);
+    const page = layout.pages[0];
+
+    expect(page[0].map((section) => section.label)).toEqual(['ESTROFA', 'PRE-CORO', 'CORO']);
+    expect(page[1].map((section) => section.label)).toEqual(['INTERLUDIO', 'PUENTE']);
+  });
 });
