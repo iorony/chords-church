@@ -722,6 +722,26 @@ button, a { touch-action: manipulation; }
 .new-song-method:hover { transform: translateY(-2px); }
 .new-song-method.is-selected { border-color: rgba(91,88,230,.55); background: linear-gradient(145deg,rgba(112,109,237,.12),rgba(255,255,255,.04)); box-shadow: 7px 8px 17px rgba(69,68,170,.14), inset 0 0 0 1px rgba(91,88,230,.08); }
 .new-song-method input { accent-color: var(--color-primary,#5655df); }
+.new-song-local-preview { display: grid; gap: .9rem; margin-top: 1rem; padding: 1rem; border: 1px solid rgba(91,88,230,.28); border-radius: 1rem; background: linear-gradient(145deg,rgba(112,109,237,.09),rgba(62,207,184,.05)); }
+.new-song-local-preview-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.new-song-local-preview-heading p { margin: 0; color: var(--color-primary,#5655df); font-size: .86rem; font-weight: 800; }
+.new-song-local-preview-heading span { display: block; margin-top: .2rem; color: var(--clay-muted); font-size: .72rem; line-height: 1.4; }
+.new-song-preview-count { flex: 0 0 auto; margin: 0 !important; padding: .3rem .55rem; border-radius: .65rem; color: #147f72 !important; font-size: .7rem !important; font-weight: 700; background: rgba(62,207,184,.13); }
+.new-song-preview-key { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; border-radius: .8rem; background: color-mix(in srgb,var(--clay-surface) 82%,transparent); }
+.new-song-preview-key strong, .new-song-preview-key span { display: block; }
+.new-song-preview-key strong { font-size: .78rem; }
+.new-song-preview-key span { margin-top: .16rem; color: var(--clay-muted); font-size: .68rem; }
+.new-song-original-key { flex: 0 0 auto; margin: 0 !important; padding: .38rem .6rem; border-radius: .65rem; color: var(--color-primary,#5655df) !important; font-size: .75rem !important; font-weight: 800; background: rgba(91,88,230,.1); }
+.new-song-preview-transpose { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; border-radius: .8rem; background: color-mix(in srgb,var(--clay-surface) 82%,transparent); }
+.new-song-preview-transpose strong, .new-song-preview-transpose span { display: block; }
+.new-song-preview-transpose strong { font-size: .78rem; }
+.new-song-preview-transpose span { margin-top: .16rem; color: var(--clay-muted); font-size: .68rem; }
+.new-song-semitone-controls { display: inline-flex; flex: 0 0 auto; overflow: hidden; border: 1px solid var(--clay-border); border-radius: .7rem; }
+.new-song-semitone-controls button { width: 2.4rem; min-height: 2.4rem; color: var(--color-primary,#5655df); font-size: 1.25rem; font-weight: 700; }
+.new-song-semitone-controls button:hover { background: rgba(91,88,230,.1); }
+.new-song-semitone-controls output { display: grid; min-width: 3.4rem; place-items: center; padding: 0 .6rem; border-inline: 1px solid var(--clay-border); font-size: .82rem; font-weight: 800; }
+.new-song-preview-reset { justify-self: start; color: var(--clay-muted); font-size: .72rem; text-decoration: underline; }
+.new-song-preview-content { max-height: 17rem; overflow: auto; padding: .8rem; border: 1px solid var(--clay-border); border-radius: .8rem; background: color-mix(in srgb,var(--clay-surface) 88%,transparent); }
 .new-song-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: .25rem; }
 .new-song-actions > span { color: var(--clay-muted); font-size: .75rem; }
 .new-song-submit { min-height: 2.9rem; padding: .75rem 1.2rem; border-radius: .95rem; color: #fff; font-weight: 700; background: linear-gradient(145deg,#716fed,#4e4dce); box-shadow: 7px 9px 18px rgba(68,67,176,.26), inset 1px 1px 2px rgba(255,255,255,.35); transition: transform .2s ease, box-shadow .2s ease; }
@@ -738,6 +758,9 @@ button, a { touch-action: manipulation; }
   .new-song-hero { align-items: flex-start; }
   .new-song-form-card { border-radius: 1.35rem; }
   .new-song-section { padding: .9rem; }
+  .new-song-local-preview-heading, .new-song-preview-key, .new-song-preview-transpose { align-items: stretch; flex-direction: column; }
+  .new-song-preview-count { align-self: flex-start; }
+  .new-song-original-key { align-self: flex-start; }
   .new-song-actions { align-items: stretch; flex-direction: column; }
   .new-song-submit { width: 100%; }
 }

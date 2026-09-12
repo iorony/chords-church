@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { renderSections } from '@/lib/chords/structure-parser';
-import { ALL_KEYS_GENERAL } from '@/lib/chords/transposition';
+import { buildSections, renderSections } from '@/lib/chords/structure-parser';
+import { ALL_KEYS_GENERAL, keyToIndex, transposeSongContent } from '@/lib/chords/transposition';
+import { detectKey, formatKeyLabel } from '@/lib/chords/key-detection';
 import ChordChart from './ChordChart';
 import type { AiReviewResponse } from '@/lib/ai/schema';
 import { normalizeText, toProperName, toProperTitle } from '@/lib/services/text-utils';
@@ -41,7 +42,41 @@ export default function NewSongForm() {
   const [useCorrected, setUseCorrected] = useState(true);
   const [alternateKey, setAlternateKey] = useState<{ key: string; confidence: number; isMinor: boolean } | null>(null);
   const [selectedKey, setSelectedKey] = useState('');
+  const [localPreviewSemitones, setLocalPreviewSemitones] = useState(0);
   const [editingDetectedArtist, setEditingDetectedArtist] = useState(false);
+
+  // Esta vista previa se calcula en el cliente mientras se escribe. Así el
+  // usuario puede comprobar la estructura y corregir el tono antes de enviar
+  // la canción a cualquier proveedor de IA.
+  const localPreview = useMemo(() => {
+    const originalContent = content.trim();
+    if (!originalContent) return null;
+
+    const detectedKey = detectKey(originalContent);
+    const originalKey = formatKeyLabel(detectedKey);
+    const transposedContent = transposeSongContent(originalContent, { semitones: localPreviewSemitones });
+    const transposedKey = ALL_KEYS_GENERAL[
+      ((keyToIndex(originalKey) + localPreviewSemitones) % 12 + 12) % 12
+    ] + (detectedKey.isMinor ? 'm' : '');
+    const sections = buildSections(transposedContent);
+    return {
+      originalKey,
+      key: transposedKey,
+      confidence: detectedKey.confidence,
+      sectionCount: sections.length,
+      structuredContent: renderSections(sections)
+    };
+  }, [content, localPreviewSemitones]);
+
+  function shiftLocalPreview(delta: number) {
+    if (!localPreview) return;
+    const nextSemitones = localPreviewSemitones + delta;
+    const nextKey = ALL_KEYS_GENERAL[
+      ((keyToIndex(localPreview.originalKey) + nextSemitones) % 12 + 12) % 12
+    ] + (/m$/i.test(localPreview.originalKey) ? 'm' : '');
+    setLocalPreviewSemitones(nextSemitones);
+    setSelectedKey(nextKey);
+  }
 
   async function checkExistingSong(
     candidate: { title: string; artist: string; content?: string },
@@ -261,11 +296,16 @@ export default function NewSongForm() {
       setError('Pega la letra (con o sin acordes) antes de continuar.');
       return;
     }
+    // Si la vista previa fue transpuesta, la misma versión de los acordes es
+    // la que se manda a reestructurar y la que después se podrá guardar.
+    const reviewContent = localPreviewSemitones
+      ? transposeSongContent(content, { semitones: localPreviewSemitones })
+      : content;
     setStep('reviewing');
     try {
       if (normalizedArtist) {
         const existing = await checkExistingSong(
-          { title: normalizedTitle, artist: normalizedArtist, content },
+          { title: normalizedTitle, artist: normalizedArtist, content: reviewContent },
           { promote: true }
         );
         if (existing) {
@@ -277,7 +317,7 @@ export default function NewSongForm() {
       const res = await fetch('/api/ai/review', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: normalizedTitle, artist: normalizedArtist, content, mode: reviewMode })
+        body: JSON.stringify({ title: normalizedTitle, artist: normalizedArtist, content: reviewContent, mode: reviewMode })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -320,7 +360,8 @@ export default function NewSongForm() {
         artistAlternatives: normalizedAlternatives.filter((candidate) => candidate.name),
         detectedTitle: reviewedTitle
       });
-      setSelectedKey(data.result.detectedKey || 'C');
+      // Conserva una corrección de tono hecha en la vista local previa.
+      setSelectedKey((current) => current || data.result.detectedKey || 'C');
       setAiAvailable(data.aiAvailable);
       setAiWarning(reviewMode === 'ai' ? data.error : null);
       setAlternateKey(data.alternateKey ?? null);
@@ -330,7 +371,7 @@ export default function NewSongForm() {
           await checkExistingSong({
             title: reviewedTitle,
             artist: reviewedArtist,
-            content: reviewedContent || content
+            content: reviewedContent || reviewContent
           }, { promote: true });
         } catch (duplicateError: any) {
           setError(duplicateError?.message || 'No se pudo comprobar si la canción ya existe.');
@@ -673,6 +714,54 @@ export default function NewSongForm() {
             className="w-full border border-gray-300 dark:border-gray-700 bg-transparent rounded-md px-3 py-2 font-mono text-sm"
             placeholder={'Escribe o pega aquí la letra de la canción...'}
           />
+          {localPreview && (
+            <div className="new-song-local-preview" aria-live="polite">
+              <div className="new-song-local-preview-heading">
+                <div>
+                  <p>Vista previa local</p>
+                  <span>Se genera automáticamente antes de la revisión con IA. Puedes comprobar y editar el tono original.</span>
+                </div>
+                <span className="new-song-preview-count">{localPreview.sectionCount} {localPreview.sectionCount === 1 ? 'sección' : 'secciones'}</span>
+              </div>
+              <div className="new-song-preview-key">
+                <div>
+                  <strong>Tono detectado del original</strong>
+                  <span>
+                    {localPreview.confidence > 0
+                      ? `Confianza ${Math.round(localPreview.confidence * 100)}% basada en los acordes incluidos.`
+                      : 'Agrega acordes para mejorar la detección automática.'}
+                  </span>
+                </div>
+                <span className="new-song-original-key">Original: {localPreview.originalKey}</span>
+              </div>
+              <div className="new-song-preview-transpose">
+                <div>
+                  <strong>Tono de la vista previa: {localPreview.key}</strong>
+                  <span>Los botones transpongan todos los acordes un semitono y actualizan el tono que se usará al revisar.</span>
+                </div>
+                <div className="new-song-semitone-controls" aria-label="Transponer acordes por semitonos">
+                  <button type="button" onClick={() => shiftLocalPreview(-1)} aria-label="Bajar un semitono" title="Bajar un semitono">−</button>
+                  <output aria-label="Tono actual de la vista previa">{localPreview.key}</output>
+                  <button type="button" onClick={() => shiftLocalPreview(1)} aria-label="Subir un semitono" title="Subir un semitono">+</button>
+                </div>
+              </div>
+              {localPreviewSemitones !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocalPreviewSemitones(0);
+                    setSelectedKey(localPreview.originalKey);
+                  }}
+                  className="new-song-preview-reset"
+                >
+                  Restaurar tono original ({localPreview.originalKey})
+                </button>
+              )}
+              <div className="new-song-preview-content">
+                <ChordChart content={localPreview.structuredContent} fontSizeClass="text-sm" />
+              </div>
+            </div>
+          )}
         </div>
         </section>
         <fieldset className="new-song-methods">
